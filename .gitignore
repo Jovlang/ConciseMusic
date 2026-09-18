@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 *.cmusic
+!tests/fixtures/*.cmusic
 .venv/
 venv/
 .idea/

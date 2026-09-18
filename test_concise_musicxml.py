@@ -2,8 +2,9 @@ import unittest
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from concise_musicxml import convert
+from concise_musicxml import convert, load_xml
 from concise_musicxml_gui import plan_outputs
+from semantic_audit import audit_slurs
 
 
 SCORE = """<?xml version="1.0"?>
@@ -23,6 +24,14 @@ SCORE = """<?xml version="1.0"?>
 
 
 class ConverterTests(unittest.TestCase):
+    def test_representative_golden_output_is_byte_exact(self):
+        fixture_dir = Path(__file__).parent / "tests" / "fixtures"
+        root = load_xml(fixture_dir / "semantic_golden.musicxml")
+        actual = convert(root)
+        expected = (fixture_dir / "semantic_golden.cmusic").read_text(encoding="utf-8")
+        self.assertEqual(actual, expected)
+        self.assertEqual(audit_slurs(root, actual), ({}, {}))
+
     def test_compact_score(self):
         output = convert(ET.fromstring(SCORE))
         self.assertIn('@score format=concise-music-v1 title="Tiny"', output)

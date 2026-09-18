@@ -119,6 +119,25 @@ analytical annotations.
 See [NOTATION_AUDIT.md](NOTATION_AUDIT.md) for semantic notation categories
 that have been identified but are not yet represented.
 
+## Ordering guarantees
+
+Deterministic order is part of the serialized format:
+
+- Note suffix categories follow the extractor order defined in
+  `NOTE_MARKER_EXTRACTORS`; markers within a category retain MusicXML source
+  order across every `<notations>` block.
+- Direction events are ordered by musical offset, with source order retained
+  when offsets are equal.
+- Chord members retain note source order. Sequential zero-duration grace notes
+  remain sequential unless MusicXML explicitly marks a chord.
+- Voices are emitted in stable identifier order.
+- Instrument aliases follow score-instrument definition order; referenced IDs
+  without definitions follow first-reference order.
+
+Intentional normalization, such as repeated chord arpeggiation markers, keeps
+the first occurrence and only adds later information when it is semantically
+distinct.
+
 ## Tests
 
 ```console
@@ -128,6 +147,16 @@ python -m unittest -v
 The regression suite includes paired semantic-collision and layout-normalizing
 tests in addition to conversion fundamentals, voices, notation spans,
 percussion identity, instrument changes, and grace/tuplet behavior.
+
+`semantic_audit.py` compares MusicXML and concise slur identities by part,
+measure, number, and endpoint type, and reports compression statistics:
+
+```console
+python semantic_audit.py score.musicxml score.cmusic
+```
+
+The repository golden fixture asserts byte-for-byte stable output across a
+representative combination of independent note semantics.
 
 ## Project files
 

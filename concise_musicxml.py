@@ -247,8 +247,8 @@ def arpeggiation_markers(note: ET.Element) -> tuple[tuple[str, str, str], ...]:
     return tuple(markers)
 
 
-def note_suffix(note: ET.Element) -> str:
-    marks: list[str] = []
+def tie_markers(note: ET.Element) -> list[str]:
+    markers: list[str] = []
     playback_ties = {x.get("type", "") for x in (x for x in note if local(x.tag) == "tie")}
     notated_tie_types: set[str] = set()
     for tied in notation_elements(note, "tied"):
@@ -256,107 +256,141 @@ def note_suffix(note: ET.Element) -> str:
         number = safe_id(tied.get("number", "1"))
         symbol = {"start": ">", "stop": "<", "continue": "~"}.get(tie_type)
         if symbol:
-            marks.append(f"t{number}{symbol}")
+            markers.append(f"t{number}{symbol}")
             notated_tie_types.add(tie_type)
         elif tie_type == "let-ring":
-            marks.append("let-ring")
+            markers.append("let-ring")
             notated_tie_types.add(tie_type)
     # A matching <tie> merely duplicates the notated relation. Keep a marker
     # only when playback semantics exist without a corresponding <tied>.
     for tie_type, symbol in (("stop", "<"), ("start", ">")):
         if tie_type in playback_ties and tie_type not in notated_tie_types:
-            marks.append("soundtie" + symbol)
+            markers.append("soundtie" + symbol)
+    return markers
+
+
+def slur_markers(note: ET.Element) -> list[str]:
+    markers: list[str] = []
     # Slurs are separate from ties and retain their MusicXML number so nested
     # and overlapping phrases can be paired.  Other slur attributes describe
     # engraving and are intentionally omitted.
-    notations = [x for x in note if local(x.tag) == "notations"]
     for slur in notation_elements(note, "slur"):
         slur_type = slur.get("type", "")
         if slur_type in {"start", "stop"}:
             number = safe_id(slur.get("number", "1"))
-            marks.append(f"s{number}{'>' if slur_type == 'start' else '<'}")
-    if notations:
-        for articulations in notation_elements(note, "articulations"):
-            values = []
-            for articulation in articulations:
-                name = local(articulation.tag)
-                value = (articulation.text or "").strip()
-                values.append(name + (":" + compact_text(value) if value else ""))
-            if values:
-                marks.append("art=" + "+".join(values))
+            markers.append(f"s{number}{'>' if slur_type == 'start' else '<'}")
+    return markers
 
-        for technical in notation_elements(note, "technical"):
-            values = technical_markers(technical)
-            if values:
-                marks.append("tech=" + "+".join(values))
 
-        for fermata in notation_elements(note, "fermata"):
-            shape = (fermata.text or "normal").strip() or "normal"
-            marks.append("fer=" + safe_id(shape))
+def articulation_markers(note: ET.Element) -> list[str]:
+    markers: list[str] = []
+    for articulations in notation_elements(note, "articulations"):
+        values = []
+        for articulation in articulations:
+            name = local(articulation.tag)
+            value = (articulation.text or "").strip()
+            values.append(name + (":" + compact_text(value) if value else ""))
+        if values:
+            markers.append("art=" + "+".join(values))
+    return markers
 
-        for ornaments in notation_elements(note, "ornaments"):
-            names: list[str] = []
-            for ornament in ornaments:
-                name = local(ornament.tag)
-                if name == "tremolo":
-                    trem_type = ornament.get("type", "single")
-                    strokes = (ornament.text or "").strip()
-                    names.append("trem:" + trem_type + (":" + strokes if strokes else ""))
-                elif name == "wavy-line":
-                    wave_type = ornament.get("type", "continue")
-                    number = safe_id(ornament.get("number", "1"))
-                    symbol = {"start": ">", "stop": "<", "continue": "~"}.get(wave_type, ":" + wave_type)
-                    names.append(f"wav{number}{symbol}" + trill_semantics(ornament))
-                elif name == "accidental-mark":
-                    value = (ornament.text or "").strip()
-                    names.append("acc:" + safe_id(value or "?"))
-                else:
-                    value = (ornament.text or "").strip()
-                    names.append(name + trill_semantics(ornament) + (":" + compact_text(value) if value else ""))
-            if names:
-                marks.append("orn=" + "+".join(names))
 
-        for tuplet in notation_elements(note, "tuplet"):
-            tuplet_type = tuplet.get("type", "")
-            if tuplet_type in {"start", "stop"}:
-                number = safe_id(tuplet.get("number", "1"))
-                marks.append(f"tup{number}{'>' if tuplet_type == 'start' else '<'}")
+def technical_notation_markers(note: ET.Element) -> list[str]:
+    markers: list[str] = []
+    for technical in notation_elements(note, "technical"):
+        values = technical_markers(technical)
+        if values:
+            markers.append("tech=" + "+".join(values))
+    return markers
 
-        for glissando in notation_elements(note, "glissando"):
-            marks.append(span_marker(glissando, "gl"))
-        for slide in notation_elements(note, "slide"):
-            marker = span_marker(slide, "slide")
-            # Bend-sound attributes affect slide realization; line-type and
-            # other graphical attributes are deliberately excluded.
-            sound = trill_semantics(slide)
-            marks.append(marker + sound)
 
+def fermata_markers(note: ET.Element) -> list[str]:
+    return [
+        "fer=" + safe_id((fermata.text or "normal").strip() or "normal")
+        for fermata in notation_elements(note, "fermata")
+    ]
+
+
+def ornament_markers(note: ET.Element) -> list[str]:
+    markers: list[str] = []
+    for ornaments in notation_elements(note, "ornaments"):
+        names: list[str] = []
+        for ornament in ornaments:
+            name = local(ornament.tag)
+            if name == "tremolo":
+                trem_type = ornament.get("type", "single")
+                strokes = (ornament.text or "").strip()
+                names.append("trem:" + trem_type + (":" + strokes if strokes else ""))
+            elif name == "wavy-line":
+                wave_type = ornament.get("type", "continue")
+                number = safe_id(ornament.get("number", "1"))
+                symbol = {"start": ">", "stop": "<", "continue": "~"}.get(wave_type, ":" + wave_type)
+                names.append(f"wav{number}{symbol}" + trill_semantics(ornament))
+            elif name == "accidental-mark":
+                value = (ornament.text or "").strip()
+                names.append("acc:" + safe_id(value or "?"))
+            else:
+                value = (ornament.text or "").strip()
+                names.append(name + trill_semantics(ornament) + (":" + compact_text(value) if value else ""))
+        if names:
+            markers.append("orn=" + "+".join(names))
+    return markers
+
+
+def tuplet_markers(note: ET.Element) -> list[str]:
+    markers: list[str] = []
+    for tuplet in notation_elements(note, "tuplet"):
+        tuplet_type = tuplet.get("type", "")
+        if tuplet_type in {"start", "stop"}:
+            number = safe_id(tuplet.get("number", "1"))
+            markers.append(f"tup{number}{'>' if tuplet_type == 'start' else '<'}")
+    return markers
+
+
+def span_relation_markers(note: ET.Element) -> list[str]:
+    markers = [span_marker(glissando, "gl") for glissando in notation_elements(note, "glissando")]
+    for slide in notation_elements(note, "slide"):
+        # Bend-sound attributes affect slide realization; line-type and other
+        # graphical attributes are deliberately excluded.
+        markers.append(span_marker(slide, "slide") + trill_semantics(slide))
+    return markers
+
+
+def time_modification_markers(note: ET.Element) -> list[str]:
     time_modification = child(note, "time-modification")
-    if time_modification is not None:
-        actual = text(time_modification, "actual-notes")
-        normal = text(time_modification, "normal-notes")
-        if actual and normal:
-            marker = f"tm={actual}:{normal}"
-            normal_type = text(time_modification, "normal-type")
-            if normal_type:
-                dots = sum(1 for x in time_modification if local(x.tag) == "normal-dot")
-                marker += ":" + safe_id(normal_type) + ("." * dots)
-            marks.append(marker)
+    if time_modification is None:
+        return []
+    actual = text(time_modification, "actual-notes")
+    normal = text(time_modification, "normal-notes")
+    if not actual or not normal:
+        return []
+    marker = f"tm={actual}:{normal}"
+    normal_type = text(time_modification, "normal-type")
+    if normal_type:
+        dots = sum(1 for x in time_modification if local(x.tag) == "normal-dot")
+        marker += ":" + safe_id(normal_type) + ("." * dots)
+    return [marker]
 
+
+def grace_markers(note: ET.Element) -> list[str]:
     grace = child(note, "grace")
-    if grace is not None:
-        marks.append("g")
-        if grace.get("slash") == "yes":
-            marks.append("gslash")
-        for attribute, marker in (
-            ("steal-time-previous", "gprev"),
-            ("steal-time-following", "gnext"),
-            ("make-time", "gmake"),
-        ):
-            if grace.get(attribute):
-                marks.append(marker + "=" + grace.get(attribute, ""))
-    if text(note, "voice") and text(note, "voice") != "1":
-        pass  # represented in the voice label
+    if grace is None:
+        return []
+    markers = ["g"]
+    if grace.get("slash") == "yes":
+        markers.append("gslash")
+    for attribute, marker in (
+        ("steal-time-previous", "gprev"),
+        ("steal-time-following", "gnext"),
+        ("make-time", "gmake"),
+    ):
+        if grace.get(attribute):
+            markers.append(marker + "=" + grace.get(attribute, ""))
+    return markers
+
+
+def notehead_markers(note: ET.Element) -> list[str]:
+    markers: list[str] = []
     notehead = child(note, "notehead")
     if notehead is not None:
         shape = (notehead.text or "normal").strip() or "normal"
@@ -364,13 +398,17 @@ def note_suffix(note: ET.Element) -> str:
             marker = "head=" + safe_id(shape)
             if notehead.get("parentheses") == "yes":
                 marker += "(paren)"
-            marks.append(marker)
+            markers.append(marker)
     notehead_text = child(note, "notehead-text")
     if notehead_text is not None:
         values = [x.text.strip() for x in notehead_text if x.text and x.text.strip()]
         if values:
-            marks.append("headtext=" + quote(" ".join(values)))
+            markers.append("headtext=" + quote(" ".join(values)))
+    return markers
 
+
+def lyric_markers(note: ET.Element) -> list[str]:
+    markers: list[str] = []
     for lyric_index, lyric in enumerate((x for x in note if local(x.tag) == "lyric"), 1):
         verse = safe_id(lyric.get("number") or lyric.get("name") or str(lyric_index))
         pieces: list[str] = []
@@ -381,18 +419,41 @@ def note_suffix(note: ET.Element) -> str:
             elif name == "elision":
                 pieces.append((item.text or "‿").strip() or "‿")
         if pieces:
-            marks.append(f"ly{verse}=" + quote("".join(pieces)))
+            markers.append(f"ly{verse}=" + quote("".join(pieces)))
         syllabic = text(lyric, "syllabic")
         if syllabic:
-            marks.append(f"syl{verse}=" + syllabic)
+            markers.append(f"syl{verse}=" + syllabic)
         for extend in (x for x in lyric if local(x.tag) == "extend"):
             extend_type = extend.get("type", "continue")
             symbol = {"start": ">", "stop": "<", "continue": "~"}.get(extend_type, ":" + extend_type)
-            marks.append(f"ext{verse}{symbol}")
+            markers.append(f"ext{verse}{symbol}")
         for flag in ("humming", "laughing", "end-line", "end-paragraph"):
             if child(lyric, flag) is not None:
-                marks.append(f"ly{verse}:{flag}")
-    return ("{" + ",".join(marks) + "}") if marks else ""
+                markers.append(f"ly{verse}:{flag}")
+    return markers
+
+
+# Marker category order is serialized format behavior. Within a category,
+# notation_elements() preserves <notations>-block order and child source order.
+NOTE_MARKER_EXTRACTORS = (
+    tie_markers,
+    slur_markers,
+    articulation_markers,
+    technical_notation_markers,
+    fermata_markers,
+    ornament_markers,
+    tuplet_markers,
+    span_relation_markers,
+    time_modification_markers,
+    grace_markers,
+    notehead_markers,
+    lyric_markers,
+)
+
+
+def note_suffix(note: ET.Element) -> str:
+    markers = [marker for extractor in NOTE_MARKER_EXTRACTORS for marker in extractor(note)]
+    return ("{" + ",".join(markers) + "}") if markers else ""
 
 
 def attribute_tokens(attributes: ET.Element, divisions: int) -> tuple[list[str], int]:
