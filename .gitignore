@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+*.cmusic
+.venv/
+venv/
+.idea/
+.vscode/
