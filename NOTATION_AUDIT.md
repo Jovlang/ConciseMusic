@@ -53,3 +53,19 @@ the items below have been added to the format yet.
 Before adding any audited category, its semantic subset and compact syntax
 should be specified explicitly so layout attributes do not leak into the
 format indiscriminately.
+
+## Display-field leakage review
+
+Rest `display-step` and `display-octave` values are now explicitly discarded;
+they only control the vertical position of a rest glyph. The remaining emitted
+fields were reviewed for common MusicXML layout attributes (`default-*`,
+`relative-*`, placement, orientation, font, color, print, stem, and beam data),
+and none of those attributes are serialized.
+
+Unpitched notes now use their semantic `<instrument id>` references and a
+part-level instrument catalog. Their normal display positions are discarded.
+When a note genuinely has no usable instrument reference, `x?(D5)` retains the
+display position only as an explicitly unknown fallback (or `x?` if even that
+is absent). The fallback does not claim that position identifies an instrument;
+two unknown events at the same position may still be semantically ambiguous in
+the source and should be reported by downstream audits if identity matters.

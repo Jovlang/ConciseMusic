@@ -57,7 +57,14 @@ The main conventions are:
   quarter note, so `/1` is a quarter and `/1/2` is an eighth.
 - `r` is a rest, `_duration` is a silent gap, and `[C4,E4]/1` is a chord.
 - Multiple voices use `v1: ... ; v2: ...`. A non-default staff is appended to
-  the voice identifier, such as `v1s2`.
+  the voice identifier, such as `v1s2`. The label may be omitted only for the
+  canonical voice 1 on staff 1.
+- Unpitched percussion uses a part-local semantic instrument alias such as
+  `x@I1`. Its definition appears after the part header as
+  `@instrument I1 id="P1-I1" name="Snare Drum" sound="drum.snare-drum"`.
+  Staff display position is discarded. If MusicXML provides no instrument
+  reference, `x?(D5)` is an explicitly unknown fallback retaining only the
+  display locator; `x?` means neither identity nor a locator was available.
 - Note suffixes use braces: `{>}` and `{<}` are tie start/stop; `{s1>}` and
   `{s1<}` are numbered slur start/stop; `{g}` is a grace note; and
   `{ly="text"}` is a lyric. Multiple markers can occur together.

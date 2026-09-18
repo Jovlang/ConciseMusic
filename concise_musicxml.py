@@ -65,6 +65,13 @@ class Voice:
     last_onset: Fraction = Fraction(0)
 
 
+@dataclass(frozen=True)
+class InstrumentDefinition:
+    xml_id: str
+    name: str = ""
+    sound: str = ""
+
+
 def load_xml(path: Path) -> ET.Element:
     data: bytes
     if path.suffix.lower() == ".mxl" or zipfile.is_zipfile(path):
@@ -79,17 +86,23 @@ def load_xml(path: Path) -> ET.Element:
     return ET.parse(io.BytesIO(data)).getroot()
 
 
-def pitch_token(note: ET.Element) -> str:
+def pitch_token(note: ET.Element, instrument_aliases: dict[str, str]) -> str:
     if child(note, "rest") is not None:
-        display = child(note, "rest")
-        step = text(display, "display-step") if display is not None else ""
-        octave = text(display, "display-octave") if display is not None else ""
-        return "r" + (f"@{step}{octave}" if step and octave else "")
+        # display-step/display-octave only position the rest glyph vertically;
+        # they are engraving data, not a sounding pitch or musical event.
+        return "r"
     if child(note, "unpitched") is not None:
+        instrument = child(note, "instrument")
+        instrument_id = instrument.get("id", "").strip() if instrument is not None else ""
+        if instrument_id and instrument_id in instrument_aliases:
+            return "x@" + instrument_aliases[instrument_id]
+        # With no semantic reference, retain display position only as an
+        # explicitly unknown fallback.  Never infer identity from it.
         unpitched = child(note, "unpitched")
-        step = text(unpitched, "display-step", "x")
+        step = text(unpitched, "display-step")
         octave = text(unpitched, "display-octave")
-        return f"x{step}{octave}"
+        position = step + octave
+        return f"x?({position})" if position else "x?"
     pitch = child(note, "pitch")
     if pitch is None:
         return "?"
@@ -205,6 +218,40 @@ def render_voice(voice: Voice) -> str:
     return " ".join(tokens)
 
 
+def instrument_catalog(
+    score_part: ET.Element | None, part: ET.Element
+) -> tuple[list[InstrumentDefinition], dict[str, str]]:
+    """Return definitions and deterministic part-local aliases."""
+    definitions: list[InstrumentDefinition] = []
+    seen: set[str] = set()
+    if score_part is not None:
+        for item in (x for x in score_part if local(x.tag) == "score-instrument"):
+            xml_id = item.get("id", "").strip()
+            if xml_id and xml_id not in seen:
+                definitions.append(
+                    InstrumentDefinition(
+                        xml_id=xml_id,
+                        name=text(item, "instrument-name"),
+                        sound=text(item, "instrument-sound"),
+                    )
+                )
+                seen.add(xml_id)
+
+    # A referenced ID remains meaningful even if its score-instrument
+    # definition is missing or incomplete, so retain it in the mapping.
+    for note in descendants(part, "note"):
+        if child(note, "unpitched") is None:
+            continue
+        reference = child(note, "instrument")
+        xml_id = reference.get("id", "").strip() if reference is not None else ""
+        if xml_id and xml_id not in seen:
+            definitions.append(InstrumentDefinition(xml_id=xml_id))
+            seen.add(xml_id)
+
+    aliases = {definition.xml_id: f"I{index}" for index, definition in enumerate(definitions, 1)}
+    return definitions, aliases
+
+
 def convert(root: ET.Element, source: str = "") -> str:
     root_name = local(root.tag)
     if root_name not in {"score-partwise", "score-timewise"}:
@@ -226,18 +273,28 @@ def convert(root: ET.Element, source: str = "") -> str:
         header.append("source=" + quote(source))
     lines = [" ".join(header)]
 
-    part_names: dict[str, str] = {}
+    score_parts: dict[str, ET.Element] = {}
     part_list = child(root, "part-list")
     if part_list is not None:
         for score_part in (x for x in part_list if local(x.tag) == "score-part"):
-            part_names[score_part.get("id", "")] = text(score_part, "part-name")
+            score_parts[score_part.get("id", "")] = score_part
 
     for part in (x for x in root if local(x.tag) == "part"):
         part_id = part.get("id", "?")
+        score_part = score_parts.get(part_id)
         part_line = f"@part {safe_id(part_id)}"
-        if part_names.get(part_id):
-            part_line += " name=" + quote(part_names[part_id])
+        part_name = text(score_part, "part-name") if score_part is not None else ""
+        if part_name:
+            part_line += " name=" + quote(part_name)
         lines.append(part_line)
+        instruments, instrument_aliases = instrument_catalog(score_part, part)
+        for definition in instruments:
+            instrument_line = f"@instrument {instrument_aliases[definition.xml_id]} id={quote(definition.xml_id)}"
+            if definition.name:
+                instrument_line += " name=" + quote(definition.name)
+            if definition.sound:
+                instrument_line += " sound=" + quote(definition.sound)
+            lines.append(instrument_line)
         divisions = 1
         for measure in (x for x in part if local(x.tag) == "measure"):
             number = measure.get("number", "?")
@@ -272,7 +329,7 @@ def convert(root: ET.Element, source: str = "") -> str:
                     key = voice_id + (f"s{staff}" if staff != "1" else "")
                     is_chord = child(item, "chord") is not None
                     start = voices[key].last_onset if is_chord else cursor
-                    token = pitch_token(item) + note_suffix(item)
+                    token = pitch_token(item, instrument_aliases) + note_suffix(item)
                     voices[key].events.append(Event(start, duration, token, is_chord))
                     if not is_chord:
                         voices[key].last_onset = start
@@ -285,8 +342,9 @@ def convert(root: ET.Element, source: str = "") -> str:
                 prefix += f" @{frac(at)}:{value}"
             if not voices:
                 lines.append(prefix + " |")
-            elif len(voices) == 1:
-                lines.append(prefix + " | " + render_voice(next(iter(voices.values()))))
+            elif len(voices) == 1 and "1" in voices:
+                # Only the canonical voice 1 / staff 1 may use the shorthand.
+                lines.append(prefix + " | " + render_voice(voices["1"]))
             else:
                 rendered = [f"v{safe_id(k)}: {render_voice(v)}" for k, v in sorted(voices.items())]
                 lines.append(prefix + " | " + " ; ".join(rendered))

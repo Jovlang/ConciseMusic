@@ -51,6 +51,13 @@ class ConverterTests(unittest.TestCase):
         </score-partwise>"""
         return convert(ET.fromstring(xml))
 
+    def percussion_score(self, definitions: str, notes: str) -> str:
+        xml = f"""<score-partwise version="4.0">
+          <part-list><score-part id="P1"><part-name>Percussion</part-name>{definitions}</score-part></part-list>
+          <part id="P1"><measure number="1"><attributes><divisions>4</divisions></attributes>{notes}</measure></part>
+        </score-partwise>"""
+        return convert(ET.fromstring(xml))
+
     def test_simple_slur(self):
         output = self.concise_notes("""<measure number="1">
           <attributes><divisions>1</divisions></attributes>
@@ -124,6 +131,139 @@ class ConverterTests(unittest.TestCase):
             <notations><slur type="start"/></notations></note>
         </measure>""")
         self.assertIn("C4{s1>}/1", output)
+
+    def test_whole_measure_rest_discards_display_position(self):
+        output = self.concise_notes("""<measure number="1">
+          <attributes><divisions>4</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+          <note><rest measure="yes"><display-step>D</display-step><display-octave>5</display-octave></rest>
+            <duration>16</duration><voice>1</voice></note>
+        </measure>""")
+        self.assertIn("| r/4", output)
+        self.assertNotIn("r@", output)
+
+    def test_ordinary_rest_discards_display_position(self):
+        output = self.concise_notes("""<measure number="1">
+          <attributes><divisions>4</divisions></attributes>
+          <note><rest><display-step>B</display-step><display-octave>4</display-octave></rest>
+            <duration>2</duration><voice>1</voice></note>
+        </measure>""")
+        self.assertIn("| r/1/2", output)
+        self.assertNotIn("B4", output)
+
+    def test_rest_duration_voice_and_staff_survive(self):
+        output = self.concise_notes("""<measure number="1">
+          <attributes><divisions>4</divisions><staves>2</staves></attributes>
+          <note><rest><display-step>F</display-step><display-octave>3</display-octave></rest>
+            <duration>8</duration><voice>7</voice><staff>2</staff></note>
+        </measure>""")
+        self.assertIn("| v7s2: r/2", output)
+
+    def test_note_pitch_is_unaffected_by_rest_display_fix(self):
+        output = self.concise_notes("""<measure number="1">
+          <attributes><divisions>4</divisions></attributes>
+          <note><pitch><step>D</step><alter>1</alter><octave>5</octave></pitch>
+            <duration>4</duration><voice>1</voice></note>
+        </measure>""")
+        self.assertIn("| D#5/1", output)
+
+    def test_two_staff_piano_rest_measure_stays_structurally_distinct(self):
+        output = self.concise_notes("""<measure number="2">
+          <attributes><divisions>4</divisions><staves>2</staves></attributes>
+          <note><rest measure="yes"><display-step>D</display-step><display-octave>5</display-octave></rest>
+            <duration>16</duration><voice>1</voice><staff>1</staff></note>
+          <backup><duration>16</duration></backup>
+          <note><rest measure="yes"><display-step>F</display-step><display-octave>3</display-octave></rest>
+            <duration>16</duration><voice>2</voice><staff>2</staff></note>
+        </measure>""")
+        self.assertIn("| v1: r/4 ; v2s2: r/4", output)
+        self.assertNotIn("r@", output)
+
+    def test_unpitched_note_uses_instrument_id_and_definition(self):
+        output = self.percussion_score(
+            """<score-instrument id="P1-I1"><instrument-name>Snare Drum</instrument-name>
+              <instrument-sound>drum.snare-drum</instrument-sound></score-instrument>""",
+            """<note><unpitched><display-step>D</display-step><display-octave>5</display-octave></unpitched>
+              <instrument id="P1-I1"/><duration>4</duration></note>""",
+        )
+        self.assertIn('@instrument I1 id="P1-I1" name="Snare Drum" sound="drum.snare-drum"', output)
+        self.assertIn("| x@I1/1", output)
+        self.assertNotIn("xD5", output)
+
+    def test_different_instruments_at_different_positions_remain_distinct(self):
+        output = self.percussion_score(
+            """<score-instrument id="P1-I1"><instrument-name>Snare</instrument-name></score-instrument>
+              <score-instrument id="P1-I2"><instrument-name>Hi-Hat</instrument-name></score-instrument>""",
+            """<note><unpitched><display-step>D</display-step><display-octave>5</display-octave></unpitched>
+                <instrument id="P1-I1"/><duration>4</duration></note>
+              <note><unpitched><display-step>G</display-step><display-octave>5</display-octave></unpitched>
+                <instrument id="P1-I2"/><duration>2</duration></note>""",
+        )
+        self.assertIn("x@I1/1 x@I2/1/2", output)
+        self.assertNotIn("D5", output)
+        self.assertNotIn("G5", output)
+
+    def test_different_instruments_at_same_position_remain_distinct(self):
+        output = self.percussion_score(
+            """<score-instrument id="P1-I1"><instrument-name>Side Stick</instrument-name></score-instrument>
+              <score-instrument id="P1-I2"><instrument-name>Snare</instrument-name></score-instrument>""",
+            """<note><unpitched><display-step>C</display-step><display-octave>5</display-octave></unpitched>
+                <instrument id="P1-I1"/><duration>4</duration></note>
+              <note><unpitched><display-step>C</display-step><display-octave>5</display-octave></unpitched>
+                <instrument id="P1-I2"/><duration>4</duration></note>""",
+        )
+        self.assertIn("x@I1/1 x@I2/1", output)
+        self.assertNotIn("C5", output)
+
+    def test_same_instrument_at_different_positions_has_same_identity(self):
+        output = self.percussion_score(
+            "<score-instrument id=\"P1-I9\"><instrument-name>Tom</instrument-name></score-instrument>",
+            """<note><unpitched><display-step>E</display-step><display-octave>4</display-octave></unpitched>
+                <instrument id="P1-I9"/><duration>4</duration></note>
+              <note><unpitched><display-step>A</display-step><display-octave>5</display-octave></unpitched>
+                <instrument id="P1-I9"/><duration>4</duration></note>""",
+        )
+        self.assertIn("x@I1/1 x@I1/1", output)
+        self.assertNotIn("E4", output)
+        self.assertNotIn("A5", output)
+
+    def test_unpitched_note_without_instrument_uses_explicit_fallback(self):
+        output = self.percussion_score(
+            "",
+            """<note><unpitched><display-step>F</display-step><display-octave>4</display-octave></unpitched>
+              <duration>4</duration></note>
+              <note><unpitched/><duration>2</duration></note>""",
+        )
+        self.assertIn("x?(F4)/1 x?/1/2", output)
+        self.assertNotIn("xF4", output)
+
+    def test_referenced_but_undefined_instrument_retains_xml_identity(self):
+        output = self.percussion_score(
+            "",
+            """<note><unpitched><display-step>B</display-step><display-octave>4</display-octave></unpitched>
+              <instrument id="missing-definition"/><duration>4</duration></note>""",
+        )
+        self.assertIn('@instrument I1 id="missing-definition"', output)
+        self.assertIn("| x@I1/1", output)
+        self.assertNotIn("B4", output)
+
+    def test_pitched_percussion_is_unaffected(self):
+        output = self.percussion_score(
+            "<score-instrument id=\"P1-I1\"><instrument-name>Timpani</instrument-name></score-instrument>",
+            """<note><pitch><step>F</step><octave>3</octave></pitch>
+              <instrument id="P1-I1"/><duration>4</duration></note>""",
+        )
+        self.assertIn("| F3/1", output)
+        self.assertNotIn("x@I1/1", output)
+
+    def test_percussion_change_does_not_affect_rests(self):
+        output = self.percussion_score(
+            "<score-instrument id=\"P1-I1\"><instrument-name>Snare</instrument-name></score-instrument>",
+            """<note><rest><display-step>D</display-step><display-octave>5</display-octave></rest>
+              <instrument id="P1-I1"/><duration>4</duration></note>""",
+        )
+        self.assertIn("| r/1", output)
+        self.assertNotIn("r@", output)
+        self.assertNotIn("D5", output)
 
 
 if __name__ == "__main__":
