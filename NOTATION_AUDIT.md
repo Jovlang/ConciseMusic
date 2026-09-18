@@ -25,20 +25,26 @@ is not claimed to be semantically lossless.
 - Part-local instrument catalogs, unpitched identity, and voice-local stateful
   instrument changes for pitched events. Missing identity in a multi-instrument
   context is emitted as unknown rather than guessed.
+- Numbered notation-level ties, with playback-only ties represented separately
+  and ordinary matching `<tie>`/`<tied>` pairs normalized.
+- Rehearsal marks and structured segno, coda, D.C., D.S., To Coda, and Fine
+  navigation when MusicXML supplies the corresponding direction/sound fields.
+- Measure repeats, multiple-measure rests, beat repeats, and slash notation
+  from `<measure-style>`.
+- Staff-specific and nontraditional keys, additive/interchangeable meters, and
+  extended diatonic/chromatic/octave/double transposition forms.
+- Lyric verse identity, text/elision, syllabic state, melisma extension,
+  humming/laughing, and line/paragraph boundaries.
+- Non-normal notehead shapes, parentheses, and notehead text as semantic
+  playing/notation instructions; graphical styling is omitted.
 
 ## 1. Semantic and still unsupported
 
 Known MusicXML distinctions that can still collide include:
 
-- Tie semantics encoded only with notation-level `<tied>` and no playback
-  `<tie>` element.
-- Notehead types used as playing techniques, notehead parentheses, and semantic
-  notehead text.
-- Full lyric structure: verse numbers, syllabic state, elision, extension, and
-  humming/laughing distinctions. Lyric text itself is retained.
-- Rehearsal marks; segno/coda symbols and navigation; principal-voice spans;
-  damp/damp-all; harp-pedal diagrams; scordatura; accordion registration;
-  percussion directions; and semantic `<other-direction>` values.
+- Principal-voice spans; damp/damp-all; harp-pedal diagrams; scordatura;
+  accordion registration; percussion directions; and semantic
+  `<other-direction>` values.
 - Direction brackets/dashes when they define a semantic span rather than a
   visual enclosure.
 - Complex metronome relations and beat-unit dots. Simple per-minute tempo is
@@ -46,12 +52,9 @@ Known MusicXML distinctions that can still collide include:
 - Playback `<sound>` semantics other than tempo, including D.C./D.S./Fine/To
   Coda routing, pizzicato, MIDI channel/program/controller changes, pan,
   elevation, and continuous pedal values.
-- Full transposition semantics beyond chromatic offset: diatonic spelling,
-  octave change, and double-transposition flags.
-- Nontraditional/microtonal key definitions and composite/interchangeable or
-  senza-misura time signatures.
-- Measure-repeat, multiple-rest, slash, and beat-repeat semantics from
-  `<measure-style>`.
+- Key cancellation and some advanced key-octave associations; interchangeable
+  meter relation operators and separator semantics beyond normalized groups.
+- Lyric language/print-object metadata and richer editorial lyric constructs.
 - Figured bass and bass-alteration semantics. `<harmony>` remains an explicit
   product decision described below.
 
@@ -81,8 +84,10 @@ only in these tested layout attributes produce identical concise output.
 
 - Courtesy, cautionary, editorial, and parenthesized accidentals: pitch alter
   is retained, but editorial intent is not yet modeled.
-- Notehead shape can be purely graphical or a performance technique depending
-  on repertoire; it remains deferred rather than copied indiscriminately.
+- Non-normal notehead shape and parentheses are treated as semantic; fill,
+  color, font, size, and custom glyph selection remain graphical. This choice
+  may preserve some harmless engraving differences rather than risk merging a
+  playing technique.
 - Beam grouping can communicate metrical analysis beyond raw duration, despite
   often being derivable. The current format intentionally omits it.
 - Fermata upright/inverted values are treated as placement; fermata shape is

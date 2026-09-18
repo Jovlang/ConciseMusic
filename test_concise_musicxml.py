@@ -28,7 +28,7 @@ class ConverterTests(unittest.TestCase):
         self.assertIn('@score format=concise-music-v1 title="Tiny"', output)
         self.assertIn('@part P1 name="Piano"', output)
         self.assertIn('m1 div=4 key=0:major time=4/4 clef1=G2 @0:tempo=120', output)
-        self.assertIn('C4/1 [E4{>},G4]/1 r/2', output)
+        self.assertIn('C4/1 [E4{soundtie>},G4]/1 r/2', output)
 
     def test_microtonal_accidental(self):
         score = SCORE.replace(
@@ -113,7 +113,7 @@ class ConverterTests(unittest.TestCase):
           <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
             <tie type="start"/><notations><slur type="start" number="3"/></notations></note>
         </measure>""")
-        self.assertIn("C4{>,s3>}/1", output)
+        self.assertIn("C4{soundtie>,s3>}/1", output)
 
     def test_multiple_slur_events_on_one_note(self):
         output = self.concise_notes("""<measure number="1">
@@ -662,6 +662,151 @@ class ConverterTests(unittest.TestCase):
         first = self.concise_notes(template.format(attrs='placement="above" default-x="1" color="#111111"'))
         second = self.concise_notes(template.format(attrs='placement="below" default-x="99" color="#ffffff"'))
         self.assertEqual(first, second)
+
+    def test_notated_tie_is_numbered_and_normalizes_matching_playback_tie(self):
+        output = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><tie type="start"/>
+            <notations><tied type="start" number="2" orientation="over" bezier-x="3"/></notations></note>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><tie type="stop"/>
+            <notations><tied type="stop" number="2" orientation="under"/></notations></note></measure>""")
+        self.assertIn("C4{t2>}/1 C4{t2<}/1", output)
+        self.assertNotIn("soundtie", output)
+        self.assertNotIn("orientation", output)
+
+    def test_notation_only_and_playback_only_ties_remain_distinct(self):
+        notated = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+            <notations><tied type="start" number="1"/></notations></note></measure>""")
+        playback = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><tie type="start"/></note></measure>""")
+        plain = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note></measure>""")
+        self.assertIn("{t1>}", notated)
+        self.assertIn("{soundtie>}", playback)
+        self.assertNotEqual(notated, playback)
+        self.assertNotEqual(notated, plain)
+
+    def test_tied_layout_variants_normalize(self):
+        template = """<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+            <notations><tied type="start" number="1" {attrs}/></notations></note></measure>"""
+        first = self.concise_notes(template.format(attrs='orientation="over" bezier-x="1"'))
+        second = self.concise_notes(template.format(attrs='orientation="under" bezier-x="99"'))
+        self.assertEqual(first, second)
+
+    def test_rehearsal_and_navigation_are_structured(self):
+        output = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <direction placement="above"><direction-type><rehearsal default-x="1">B</rehearsal><segno/></direction-type>
+            <sound segno="verse"/></direction>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note>
+          <direction><direction-type><words>D.S. al Coda</words></direction-type>
+            <sound dalsegno="verse" tocoda="outro"/></direction>
+          <direction><direction-type><coda/></direction-type><sound coda="outro"/></direction>
+          <direction><direction-type><words>Fine</words></direction-type><sound fine="yes"/></direction>
+        </measure>""")
+        self.assertIn('@0:rehearsal="B" @0:segno=verse', output)
+        self.assertIn('@1:jump=DS:verse @1:tocoda=outro', output)
+        self.assertIn('@1:coda=outro', output)
+        self.assertIn('@1:fine', output)
+
+    def test_navigation_semantics_collide_but_layout_normalizes(self):
+        with_jump = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <direction placement="above"><direction-type><segno default-x="1"/></direction-type><sound segno="S"/></direction>
+          <direction><sound dalsegno="S"/></direction></measure>""")
+        same_jump_layout = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <direction placement="below"><direction-type><segno default-x="99"/></direction-type><sound segno="S"/></direction>
+          <direction><sound dalsegno="S"/></direction></measure>""")
+        no_jump = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <direction><direction-type><segno/></direction-type><sound segno="S"/></direction></measure>""")
+        self.assertEqual(with_jump, same_jump_layout)
+        self.assertNotEqual(with_jump, no_jump)
+
+    def test_measure_style_semantics_are_preserved(self):
+        output = self.concise_notes("""<measure number="1"><attributes><divisions>4</divisions><measure-style>
+          <measure-repeat type="start" slashes="1">2</measure-repeat></measure-style></attributes></measure>
+          <measure number="2"><attributes><measure-style><multiple-rest use-symbols="yes">8</multiple-rest>
+            <beat-repeat type="start" slashes="2"><slash-type>eighth</slash-type><slash-dot/></beat-repeat>
+            <slash type="start"><slash-type>quarter</slash-type></slash>
+          </measure-style></attributes></measure>""")
+        self.assertIn("m1 div=4 measure-repeat=start:2 |", output)
+        self.assertIn("m2 multirest=8 beat-repeat=start:eighth. slash=start:quarter |", output)
+        self.assertNotIn("use-symbols", output)
+
+    def test_measure_repeat_collision_and_layout_normalization(self):
+        repeated = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions><measure-style>
+          <measure-repeat type="start" slashes="1">1</measure-repeat></measure-style></attributes></measure>""")
+        repeated_layout = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions><measure-style>
+          <measure-repeat type="start" slashes="4">1</measure-repeat></measure-style></attributes></measure>""")
+        empty = self.concise_notes('<measure number="1"><attributes><divisions>1</divisions></attributes></measure>')
+        self.assertEqual(repeated, repeated_layout)
+        self.assertNotEqual(repeated, empty)
+
+    def test_extended_key_time_and_transposition_semantics(self):
+        output = self.concise_notes("""<measure number="1"><attributes><divisions>4</divisions>
+          <key number="2"><key-step>F</key-step><key-alter>1</key-alter><key-accidental>sharp</key-accidental>
+            <key-step>B</key-step><key-alter>0.5</key-alter><mode>custom</mode></key>
+          <time number="2"><beats>3</beats><beat-type>8</beat-type><beats>2</beats><beat-type>8</beat-type>
+            <interchangeable><beats>5</beats><beat-type>8</beat-type></interchangeable></time>
+          <transpose number="2"><diatonic>-4</diatonic><chromatic>-7</chromatic><octave-change>-1</octave-change><double/></transpose>
+        </attributes></measure>""")
+        self.assertIn("keyx2=F:1:sharp+B:0.5:custom", output)
+        self.assertIn("timex2=3/8+2/8|5/8", output)
+        self.assertIn("transposex2=dia:-4,chrom:-7,oct:-1,double", output)
+
+    def test_extended_signature_semantics_collide_but_layout_normalizes(self):
+        template = """<measure number="1"><attributes {attrs}><divisions>1</divisions>
+          <key><key-step>F</key-step><key-alter>{alter}</key-alter></key>
+          <time><beats>3</beats><beat-type>8</beat-type><beats>2</beats><beat-type>8</beat-type></time>
+          <transpose><diatonic>-4</diatonic><chromatic>-7</chromatic></transpose></attributes></measure>"""
+        first = self.concise_notes(template.format(attrs='default-x="1"', alter="1"))
+        same_layout = self.concise_notes(template.format(attrs='default-x="99"', alter="1"))
+        different = self.concise_notes(template.format(attrs='default-x="1"', alter="0.5"))
+        self.assertEqual(first, same_layout)
+        self.assertNotEqual(first, different)
+
+    def test_structured_lyrics_preserve_verse_syllabic_elision_and_extension(self):
+        output = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+            <lyric number="2" placement="below"><syllabic>begin</syllabic><text>a</text><elision>‿</elision><text>mor</text>
+              <extend type="start"/></lyric></note>
+          <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration>
+            <lyric number="2"><syllabic>end</syllabic><text>é</text><extend type="stop"/></lyric></note>
+        </measure>""")
+        self.assertIn('C4{ly2="a‿mor",syl2=begin,ext2>}/1', output)
+        self.assertIn('D4{ly2="é",syl2=end,ext2<}/1', output)
+        self.assertNotIn("placement", output)
+
+    def test_lyric_structure_collides_but_layout_normalizes(self):
+        template = """<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+            <lyric number="1" {attrs}><syllabic>{syllabic}</syllabic><text>sun</text></lyric></note></measure>"""
+        begin = self.concise_notes(template.format(attrs='placement="above" default-y="1"', syllabic="begin"))
+        begin_layout = self.concise_notes(template.format(attrs='placement="below" default-y="99"', syllabic="begin"))
+        single = self.concise_notes(template.format(attrs='', syllabic="single"))
+        self.assertEqual(begin, begin_layout)
+        self.assertNotEqual(begin, single)
+
+    def test_notehead_semantics_and_parentheses_are_preserved(self):
+        special = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+            <notehead color="#ff0000" font-size="12" parentheses="yes">diamond</notehead></note>
+          <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><notehead>x</notehead></note>
+        </measure>""")
+        plain = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note>
+          <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration></note></measure>""")
+        self.assertIn("C4{head=diamond(paren)}/1 D4{head=x}/1", special)
+        self.assertNotEqual(special, plain)
+        self.assertNotIn("#ff0000", special)
+
+    def test_notehead_layout_variants_normalize(self):
+        template = """<measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+            <notehead color="{color}" font-size="{size}">diamond</notehead></note></measure>"""
+        self.assertEqual(
+            self.concise_notes(template.format(color="#000000", size="8")),
+            self.concise_notes(template.format(color="#ffffff", size="20")),
+        )
 
 
 if __name__ == "__main__":

@@ -70,9 +70,10 @@ The main conventions are:
   `C4@I1/1 D4/1 E4@I2/1` establishes `I1`, keeps it for `D4`, then switches to
   `I2`. Each voice has independent state. Single-instrument parts need no
   per-note markers, and an ambiguous missing reference is explicit as `@?`.
-- Note suffixes use braces: `{>}` and `{<}` are tie start/stop; `{s1>}` and
-  `{s1<}` are numbered slur start/stop; `{g}` is a grace note; and
-  `{ly="text"}` is a lyric. Multiple markers can occur together.
+- Note suffixes use braces: `{t1>}` and `{t1<}` are numbered notated ties;
+  `{soundtie>}` is a playback-only tie; `{s1>}` and `{s1<}` are numbered slur
+  start/stop; and `{g}` is a grace note. Matching MusicXML `<tie>` and `<tied>`
+  elements normalize to one notated tie marker.
 - Timed directions use `@quarter-offset:value`, such as `@0:tempo=120`.
 
 Additional semantic markers include:
@@ -94,6 +95,18 @@ Additional semantic markers include:
   MusicXML markers are normalized once at event level.
 - Explicit trill realization appears compactly, for example
   `orn=trill-mark(start=upper;step=half;accel=yes;beats=4)`.
+- Rehearsal/navigation directions are structured as `rehearsal="B"`,
+  `segno=S1`, `jump=DS:S1`, `tocoda=C1`, `coda=C1`, and `fine` at their exact
+  measure offsets.
+- Measure semantics include `measure-repeat=start:1`, `multirest=8`,
+  `beat-repeat=start:eighth`, and `slash=start:quarter`.
+- Nonstandard or staff-specific signatures use normalized escape forms such as
+  `keyx2=F:1:sharp+B:0.5`, `timex2=3/8+2/8|5/8`, and
+  `transposex2=dia:-4,chrom:-7,oct:-1`.
+- Lyrics retain verse, syllabic state, elision, and extension, for example
+  `{ly2="a‿mor",syl2=begin,ext2>}`.
+- Semantically distinct noteheads use `{head=diamond}`, `{head=x}`, or
+  `{head=diamond(paren)}`. Color, font, size, and glyph styling are discarded.
 
 ## Design scope
 

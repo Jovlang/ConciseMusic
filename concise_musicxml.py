@@ -96,6 +96,20 @@ class InstrumentDefinition:
     sound: str = ""
 
 
+@dataclass
+class NavigationState:
+    segnos: int = 0
+    codas: int = 0
+
+    def next_segno(self) -> str:
+        self.segnos += 1
+        return f"S{self.segnos}"
+
+    def next_coda(self) -> str:
+        self.codas += 1
+        return f"C{self.codas}"
+
+
 def load_xml(path: Path) -> ET.Element:
     data: bytes
     if path.suffix.lower() == ".mxl" or zipfile.is_zipfile(path):
@@ -235,11 +249,23 @@ def arpeggiation_markers(note: ET.Element) -> tuple[tuple[str, str, str], ...]:
 
 def note_suffix(note: ET.Element) -> str:
     marks: list[str] = []
-    ties = {x.get("type", "") for x in descendants(note, "tie")}
-    if "stop" in ties:
-        marks.append("<")
-    if "start" in ties:
-        marks.append(">")
+    playback_ties = {x.get("type", "") for x in (x for x in note if local(x.tag) == "tie")}
+    notated_tie_types: set[str] = set()
+    for tied in notation_elements(note, "tied"):
+        tie_type = tied.get("type", "")
+        number = safe_id(tied.get("number", "1"))
+        symbol = {"start": ">", "stop": "<", "continue": "~"}.get(tie_type)
+        if symbol:
+            marks.append(f"t{number}{symbol}")
+            notated_tie_types.add(tie_type)
+        elif tie_type == "let-ring":
+            marks.append("let-ring")
+            notated_tie_types.add(tie_type)
+    # A matching <tie> merely duplicates the notated relation. Keep a marker
+    # only when playback semantics exist without a corresponding <tied>.
+    for tie_type, symbol in (("stop", "<"), ("start", ">")):
+        if tie_type in playback_ties and tie_type not in notated_tie_types:
+            marks.append("soundtie" + symbol)
     # Slurs are separate from ties and retain their MusicXML number so nested
     # and overlapping phrases can be paired.  Other slur attributes describe
     # engraving and are intentionally omitted.
@@ -331,13 +357,41 @@ def note_suffix(note: ET.Element) -> str:
                 marks.append(marker + "=" + grace.get(attribute, ""))
     if text(note, "voice") and text(note, "voice") != "1":
         pass  # represented in the voice label
-    lyrics = []
-    for lyric in (x for x in note if local(x.tag) == "lyric"):
-        syllables = [x.text.strip() for x in descendants(lyric, "text") if x.text and x.text.strip()]
-        if syllables:
-            lyrics.append(" ".join(syllables))
-    if lyrics:
-        marks.append("ly=" + quote("/".join(lyrics)))
+    notehead = child(note, "notehead")
+    if notehead is not None:
+        shape = (notehead.text or "normal").strip() or "normal"
+        if shape != "normal" or notehead.get("parentheses") == "yes":
+            marker = "head=" + safe_id(shape)
+            if notehead.get("parentheses") == "yes":
+                marker += "(paren)"
+            marks.append(marker)
+    notehead_text = child(note, "notehead-text")
+    if notehead_text is not None:
+        values = [x.text.strip() for x in notehead_text if x.text and x.text.strip()]
+        if values:
+            marks.append("headtext=" + quote(" ".join(values)))
+
+    for lyric_index, lyric in enumerate((x for x in note if local(x.tag) == "lyric"), 1):
+        verse = safe_id(lyric.get("number") or lyric.get("name") or str(lyric_index))
+        pieces: list[str] = []
+        for item in lyric:
+            name = local(item.tag)
+            if name == "text" and item.text:
+                pieces.append(item.text.strip())
+            elif name == "elision":
+                pieces.append((item.text or "‿").strip() or "‿")
+        if pieces:
+            marks.append(f"ly{verse}=" + quote("".join(pieces)))
+        syllabic = text(lyric, "syllabic")
+        if syllabic:
+            marks.append(f"syl{verse}=" + syllabic)
+        for extend in (x for x in lyric if local(x.tag) == "extend"):
+            extend_type = extend.get("type", "continue")
+            symbol = {"start": ">", "stop": "<", "continue": "~"}.get(extend_type, ":" + extend_type)
+            marks.append(f"ext{verse}{symbol}")
+        for flag in ("humming", "laughing", "end-line", "end-paragraph"):
+            if child(lyric, flag) is not None:
+                marks.append(f"ly{verse}:{flag}")
     return ("{" + ",".join(marks) + "}") if marks else ""
 
 
@@ -348,16 +402,57 @@ def attribute_tokens(attributes: ET.Element, divisions: int) -> tuple[list[str],
         divisions = max(1, int(raw_div))
         out.append(f"div={divisions}")
     for key in (x for x in attributes if local(x.tag) == "key"):
+        staff = key.get("number", "")
+        label = "key" + staff
         fifths = text(key, "fifths")
         mode = text(key, "mode")
         if fifths:
-            out.append("key=" + fifths + (":" + safe_id(mode) if mode else ""))
+            out.append(label + "=" + fifths + (":" + safe_id(mode) if mode else ""))
+        else:
+            items = []
+            steps = [x for x in key if local(x.tag) == "key-step"]
+            alters = [x for x in key if local(x.tag) == "key-alter"]
+            accidentals = [x for x in key if local(x.tag) == "key-accidental"]
+            for index, step in enumerate(steps):
+                value = (step.text or "?").strip()
+                if index < len(alters) and alters[index].text:
+                    value += ":" + alters[index].text.strip()
+                if index < len(accidentals) and accidentals[index].text:
+                    value += ":" + safe_id(accidentals[index].text)
+                items.append(value)
+            if items:
+                out.append("keyx" + staff + "=" + "+".join(items) + (":" + safe_id(mode) if mode else ""))
     for time in (x for x in attributes if local(x.tag) == "time"):
-        beats = text(time, "beats")
-        beat_type = text(time, "beat-type")
+        staff = time.get("number", "")
+        pairs: list[str] = []
+        pending = ""
+        for item in time:
+            name = local(item.tag)
+            if name == "beats":
+                pending = (item.text or "").strip()
+            elif name == "beat-type" and pending:
+                pairs.append(pending + "/" + (item.text or "?").strip())
+                pending = ""
         symbol = time.get("symbol", "")
-        if beats and beat_type:
-            out.append(f"time={beats}/{beat_type}" + (f":{symbol}" if symbol else ""))
+        senza = text(time, "senza-misura")
+        if senza or child(time, "senza-misura") is not None:
+            out.append("timex" + staff + "=senza-misura" + (":" + safe_id(senza) if senza else ""))
+        elif len(pairs) == 1 and child(time, "interchangeable") is None:
+            out.append("time" + staff + "=" + pairs[0] + (f":{symbol}" if symbol else ""))
+        elif pairs:
+            marker = "timex" + staff + "=" + "+".join(pairs)
+            interchangeable = child(time, "interchangeable")
+            if interchangeable is not None:
+                other_pairs = []
+                other_beats = [x for x in interchangeable if local(x.tag) == "beats"]
+                other_types = [x for x in interchangeable if local(x.tag) == "beat-type"]
+                other_pairs = [
+                    (beat.text or "?").strip() + "/" + (other_types[i].text or "?").strip()
+                    for i, beat in enumerate(other_beats)
+                    if i < len(other_types)
+                ]
+                marker += "|" + "+".join(other_pairs)
+            out.append(marker + (f":{symbol}" if symbol else ""))
     for clef in (x for x in attributes if local(x.tag) == "clef"):
         number = clef.get("number", "1")
         sign, line = text(clef, "sign"), text(clef, "line")
@@ -366,13 +461,49 @@ def attribute_tokens(attributes: ET.Element, divisions: int) -> tuple[list[str],
             out.append(f"clef{number}={sign}{line}" + (f"^{octave}" if octave else ""))
     transpose = child(attributes, "transpose")
     if transpose is not None:
+        staff = transpose.get("number", "")
+        diatonic = text(transpose, "diatonic")
         chromatic = text(transpose, "chromatic")
-        if chromatic:
-            out.append(f"transpose={chromatic}")
+        octave = text(transpose, "octave-change")
+        doubled = child(transpose, "double") is not None
+        if chromatic and not diatonic and not octave and not doubled:
+            out.append("transpose" + staff + "=" + chromatic)
+        elif chromatic or diatonic or octave or doubled:
+            values = []
+            if diatonic:
+                values.append("dia:" + diatonic)
+            if chromatic:
+                values.append("chrom:" + chromatic)
+            if octave:
+                values.append("oct:" + octave)
+            if doubled:
+                values.append("double")
+            out.append("transposex" + staff + "=" + ",".join(values))
+
+    for measure_style in (x for x in attributes if local(x.tag) == "measure-style"):
+        staff = measure_style.get("number", "")
+        for item in measure_style:
+            name = local(item.tag)
+            value = (item.text or "").strip()
+            if name == "multiple-rest":
+                out.append("multirest" + staff + "=" + (value or "?"))
+            elif name == "measure-repeat":
+                repeat_type = item.get("type", "")
+                out.append("measure-repeat" + staff + "=" + repeat_type + (":" + value if value else ""))
+            elif name in {"beat-repeat", "slash"}:
+                repeat_type = item.get("type", "")
+                details = [repeat_type] if repeat_type else []
+                if value:
+                    details.append(value)
+                slash_type = text(item, "slash-type")
+                if slash_type:
+                    dots = sum(1 for x in item if local(x.tag) == "slash-dot")
+                    details.append(slash_type + "." * dots)
+                out.append(name + staff + "=" + ":".join(details))
     return out, divisions
 
 
-def direction_tokens(direction: ET.Element) -> list[str]:
+def direction_tokens(direction: ET.Element, navigation: NavigationState | None = None) -> list[str]:
     out: list[str] = []
     sound = child(direction, "sound")
     if sound is not None and sound.get("tempo"):
@@ -389,6 +520,27 @@ def direction_tokens(direction: ET.Element) -> list[str]:
     words = [x.text.strip() for x in descendants(direction, "words") if x.text and x.text.strip()]
     if words:
         out.append("text=" + quote(" ".join(words)))
+    for rehearsal in descendants(direction, "rehearsal"):
+        value = (rehearsal.text or "").strip()
+        if value:
+            out.append("rehearsal=" + quote(value))
+    for segno in descendants(direction, "segno"):
+        value = sound.get("segno", "") if sound is not None else ""
+        value = value or (segno.text or "").strip() or (navigation.next_segno() if navigation else "S1")
+        out.append("segno=" + safe_id(value))
+    for coda in descendants(direction, "coda"):
+        value = sound.get("coda", "") if sound is not None else ""
+        value = value or (coda.text or "").strip() or (navigation.next_coda() if navigation else "C1")
+        out.append("coda=" + safe_id(value))
+    if sound is not None:
+        if sound.get("dacapo") == "yes":
+            out.append("jump=DC")
+        if sound.get("dalsegno"):
+            out.append("jump=DS:" + safe_id(sound.get("dalsegno", "")))
+        if sound.get("tocoda"):
+            out.append("tocoda=" + safe_id(sound.get("tocoda", "")))
+        if sound.get("fine"):
+            out.append("fine")
     for wedge in descendants(direction, "wedge"):
         if wedge.get("type"):
             out.append("wedge=" + wedge.get("type", ""))
@@ -583,6 +735,7 @@ def convert(root: ET.Element, source: str = "") -> str:
         divisions = 1
         instrument_states: dict[str, str] = {}
         multiple_instruments = len(instrument_aliases) > 1
+        navigation = NavigationState()
         for measure in (x for x in part if local(x.tag) == "measure"):
             number = measure.get("number", "?")
             attrs: list[str] = []
@@ -600,7 +753,7 @@ def convert(root: ET.Element, source: str = "") -> str:
                     cursor += Fraction(int(text(item, "duration", "0")), divisions)
                 elif kind == "direction":
                     offset = Fraction(int(text(item, "offset", "0") or 0), divisions)
-                    annotations.extend((cursor + offset, x) for x in direction_tokens(item))
+                    annotations.extend((cursor + offset, x) for x in direction_tokens(item, navigation))
                 elif kind == "barline":
                     repeat = child(item, "repeat")
                     if repeat is not None:
