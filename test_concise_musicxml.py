@@ -36,7 +36,7 @@ class ConverterTests(unittest.TestCase):
         output = convert(ET.fromstring(SCORE))
         self.assertIn('@score format=concise-music-v1 title="Tiny"', output)
         self.assertIn('@part P1 name="Piano"', output)
-        self.assertIn('m1 div=4 key=0:major time=4/4 clef1=G2 @0:tempo=120', output)
+        self.assertIn('m1 div=4 key=0 time=4/4 clef1=G2 @0:tempo=120', output)
         self.assertIn('C4/1 [E4{soundtie>},G4]/1 r/2', output)
 
     def test_microtonal_accidental(self):
@@ -758,9 +758,59 @@ class ConverterTests(unittest.TestCase):
             <interchangeable><beats>5</beats><beat-type>8</beat-type></interchangeable></time>
           <transpose number="2"><diatonic>-4</diatonic><chromatic>-7</chromatic><octave-change>-1</octave-change><double/></transpose>
         </attributes></measure>""")
-        self.assertIn("keyx2=F:1:sharp+B:0.5:custom", output)
+        self.assertIn("keyx2=F:1:sharp+B:0.5", output)
         self.assertIn("timex2=3/8+2/8|5/8", output)
         self.assertIn("transposex2=dia:-4,chrom:-7,oct:-1,double", output)
+
+    def conventional_key_output(self, fifths: int, mode: str, staff: str = "") -> str:
+        number = f' number="{staff}"' if staff else ""
+        return self.concise_notes(f"""<measure number="1"><attributes><divisions>1</divisions>
+          <key{number}><fifths>{fifths}</fifths><mode>{mode}</mode></key>
+        </attributes></measure>""")
+
+    def test_conventional_key_mode_is_intentionally_normalized_away(self):
+        cases = ((3, "major", "key=3"), (3, "minor", "key=3"),
+                 (0, "major", "key=0"), (0, "minor", "key=0"))
+        for fifths, mode, token in cases:
+            with self.subTest(fifths=fifths, mode=mode):
+                output = self.conventional_key_output(fifths, mode)
+                self.assertIn(token, output)
+                self.assertNotIn(":" + mode, output)
+        self.assertEqual(
+            self.conventional_key_output(3, "major"),
+            self.conventional_key_output(3, "minor"),
+        )
+        self.assertEqual(
+            self.conventional_key_output(0, "major"),
+            self.conventional_key_output(0, "minor"),
+        )
+
+    def test_different_fifths_remain_distinct(self):
+        self.assertNotEqual(
+            self.conventional_key_output(3, "major"),
+            self.conventional_key_output(0, "major"),
+        )
+
+    def test_staff_specific_key_signature_retains_staff_not_mode(self):
+        output = self.conventional_key_output(-2, "minor", "2")
+        self.assertIn("key2=-2", output)
+        self.assertNotIn("minor", output)
+
+    def test_western_sunrise_style_zero_fifths_does_not_assert_c_major(self):
+        output = self.conventional_key_output(0, "major")
+        self.assertIn("key=0", output)
+        self.assertNotIn("major", output)
+        self.assertNotIn("C major", output)
+
+    def test_nonstandard_key_preserves_accidentals_but_normalizes_mode(self):
+        template = """<measure number="1"><attributes><divisions>1</divisions><key>
+          <key-step>F</key-step><key-alter>1</key-alter><key-accidental>sharp</key-accidental>
+          <key-step>B</key-step><key-alter>0.5</key-alter><mode>{mode}</mode>
+        </key></attributes></measure>"""
+        major = self.concise_notes(template.format(mode="major"))
+        minor = self.concise_notes(template.format(mode="minor"))
+        self.assertEqual(major, minor)
+        self.assertIn("keyx=F:1:sharp+B:0.5", major)
 
     def test_extended_signature_semantics_collide_but_layout_normalizes(self):
         template = """<measure number="1"><attributes {attrs}><divisions>1</divisions>

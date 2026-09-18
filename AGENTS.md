@@ -62,6 +62,8 @@ Keep these distinctions explicit during implementation and review:
 - authored performance semantics versus engraving/layout attributes;
 - sequential grace notes versus grace chords;
 - instrument identity from XML IDs versus names, display position, or inference.
+- written key signature (`key=N` fifths) versus inferred tonal center or mode;
+  conventional MusicXML `<mode>` must not be serialized into the key token.
 
 ## Verification
 

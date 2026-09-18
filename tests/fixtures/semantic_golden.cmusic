@@ -1,3 +1,3 @@
 @score format=concise-music-v1 title="Golden"
 @part P1 name="Test"
-m1 div=4 key=0:major time=4/4 clef1=G2 @0:rehearsal="A" @0:segno=S1 | C4{t1>,s2>,art=accent,tech=fingering:2,orn=trill-mark(step=half),gl1>,head=diamond(paren),ly1="gold",syl1=begin,ext1>}/1 G4{t1<,s2<,fer=normal,gl1<,ly1="en",syl1=end,ext1<}/3
+m1 div=4 key=0 time=4/4 clef1=G2 @0:rehearsal="A" @0:segno=S1 | C4{t1>,s2>,art=accent,tech=fingering:2,orn=trill-mark(step=half),gl1>,head=diamond(paren),ly1="gold",syl1=begin,ext1>}/1 G4{t1<,s2<,fer=normal,gl1<,ly1="en",syl1=end,ext1<}/3

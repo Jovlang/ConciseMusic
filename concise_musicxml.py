@@ -466,9 +466,10 @@ def attribute_tokens(attributes: ET.Element, divisions: int) -> tuple[list[str],
         staff = key.get("number", "")
         label = "key" + staff
         fifths = text(key, "fifths")
-        mode = text(key, "mode")
         if fifths:
-            out.append(label + "=" + fifths + (":" + safe_id(mode) if mode else ""))
+            # This token is a written key signature, not a tonal analysis.
+            # MusicXML mode metadata is deliberately normalized away.
+            out.append(label + "=" + fifths)
         else:
             items = []
             steps = [x for x in key if local(x.tag) == "key-step"]
@@ -482,7 +483,9 @@ def attribute_tokens(attributes: ET.Element, divisions: int) -> tuple[list[str],
                     value += ":" + safe_id(accidentals[index].text)
                 items.append(value)
             if items:
-                out.append("keyx" + staff + "=" + "+".join(items) + (":" + safe_id(mode) if mode else ""))
+                # Explicit authored accidentals fully describe a nonstandard
+                # signature; a generic mode label adds analytical ambiguity.
+                out.append("keyx" + staff + "=" + "+".join(items))
     for time in (x for x in attributes if local(x.tag) == "time"):
         staff = time.get("number", "")
         pairs: list[str] = []

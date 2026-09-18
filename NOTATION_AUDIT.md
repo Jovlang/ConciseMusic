@@ -68,6 +68,10 @@ Known MusicXML distinctions that can still collide include:
   intent requires an explicit semantic marker.
 - Rest display position when the event is already identified as a rest.
 - Unpitched display position when semantic instrument identity is available.
+- Conventional MusicXML `<mode>` metadata. `key=N` represents only the written
+  signature in fifths; tonal center and modality are analysis, not uniquely
+  determined by that signature. Nonstandard `keyx` preserves its explicit
+  accidentals and also omits the generic mode label.
 
 ## 3. Engraving/layout only
 

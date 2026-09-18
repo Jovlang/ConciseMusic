@@ -46,7 +46,7 @@ Example:
 ```text
 @score format=concise-music-v1 title="Example" source="score.musicxml"
 @part P1 name="Piano"
-m1 div=4 key=0:major time=4/4 clef1=G2 @0:tempo=120 | C4{s1>}/1 D4/1 [E4,G4]/1 F4{s1<}/1
+m1 div=4 key=0 time=4/4 clef1=G2 @0:tempo=120 | C4{s1>}/1 D4/1 [E4,G4]/1 F4{s1<}/1
 ```
 
 The main conventions are:
@@ -56,6 +56,12 @@ The main conventions are:
 - `pitch/duration` represents a note. Duration is an exact fraction of a
   quarter note, so `/1` is a quarter and `/1/2` is an eighth.
 - `r` is a rest, `_duration` is a silent gap, and `[C4,E4]/1` is a chord.
+- `key=N` is the written key signature expressed as MusicXML fifths:
+  `key=3` means three sharps, `key=-2` means two flats, and `key=0` means no
+  key-signature accidentals. It does **not** assert a tonal center or mode.
+  MusicXML `<mode>` is normalized away; tonal center and modality are derived
+  musical analysis to be inferred from the score. Staff-specific signatures
+  use `key1=N`, `key2=N`, and so on.
 - Multiple voices use `v1: ... ; v2: ...`. A non-default staff is appended to
   the voice identifier, such as `v1s2`. The label may be omitted only for the
   canonical voice 1 on staff 1.
@@ -102,7 +108,8 @@ Additional semantic markers include:
   `beat-repeat=start:eighth`, and `slash=start:quarter`.
 - Nonstandard or staff-specific signatures use normalized escape forms such as
   `keyx2=F:1:sharp+B:0.5`, `timex2=3/8+2/8|5/8`, and
-  `transposex2=dia:-4,chrom:-7,oct:-1`.
+  `transposex2=dia:-4,chrom:-7,oct:-1`. `keyx` records the authored accidental
+  set itself and likewise omits a generic major/minor mode label.
 - Lyrics retain verse, syllabic state, elision, and extension, for example
   `{ly2="a‿mor",syl2=begin,ext2>}`.
 - Semantically distinct noteheads use `{head=diamond}`, `{head=x}`, or
