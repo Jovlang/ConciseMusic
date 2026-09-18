@@ -62,13 +62,38 @@ The main conventions are:
 - Unpitched percussion uses a part-local semantic instrument alias such as
   `x@I1`. Its definition appears after the part header as
   `@instrument I1 id="P1-I1" name="Snare Drum" sound="drum.snare-drum"`.
-  Staff display position is discarded. If MusicXML provides no instrument
-  reference, `x?(D5)` is an explicitly unknown fallback retaining only the
-  display locator; `x?` means neither identity nor a locator was available.
+  Aliases follow score-definition order and are scoped to their part. Staff
+  display position is discarded. If MusicXML provides no instrument reference,
+  `x?(D5)` is an explicitly unknown fallback retaining only the display
+  locator; `x?` means neither identity nor a locator was available.
+- Pitched instrument changes use the same mapping. In a multi-instrument voice,
+  `C4@I1/1 D4/1 E4@I2/1` establishes `I1`, keeps it for `D4`, then switches to
+  `I2`. Each voice has independent state. Single-instrument parts need no
+  per-note markers, and an ambiguous missing reference is explicit as `@?`.
 - Note suffixes use braces: `{>}` and `{<}` are tie start/stop; `{s1>}` and
   `{s1<}` are numbered slur start/stop; `{g}` is a grace note; and
   `{ly="text"}` is a lyric. Multiple markers can occur together.
 - Timed directions use `@quarter-offset:value`, such as `@0:tempo=120`.
+
+Additional semantic markers include:
+
+- `art=staccato+accent`, `fer=normal`, and `orn=trill-mark` for articulations,
+  fermatas, and ornaments. Tremolos and numbered wavy lines are retained within
+  the ornament marker.
+- `tup1>` / `tup1<` for numbered tuplet spans and `tm=3:2:eighth` for the
+  performed-to-normal note ratio.
+- `{g,gslash,gprev=20}` for grace-note identity, slash, and timing behavior.
+- Timed `ped1=start`, `ped1=stop`, and `oct1=down:8` directions for pedal and
+  octave-shift events. Numbered spans remain distinguishable.
+- `tech=fingering:2+string:3+fret:5`, `tech=harmonic:natural`, and related
+  properties preserve technical playing instructions and custom text.
+- `gl1>` / `gl1<` and `slide1>` / `slide1<` are distinct numbered note
+  relationships. Authored text and slide realization timing are retained.
+- `[C4,E4,G4]{arp1^}/1` is an upward arpeggiated chord;
+  `[C4,E4,G4]{noarp1}/1` explicitly forbids arpeggiation. Repeated per-note
+  MusicXML markers are normalized once at event level.
+- Explicit trill realization appears compactly, for example
+  `orn=trill-mark(start=upper;step=half;accel=yes;beats=4)`.
 
 ## Design scope
 
@@ -87,9 +112,9 @@ that have been identified but are not yet represented.
 python -m unittest -v
 ```
 
-The test suite covers conversion fundamentals, microtonal accidentals, output
-name collisions, slurs across barlines, nested and overlapping slurs, multiple
-slur events on one note, and combined ties and slurs.
+The regression suite includes paired semantic-collision and layout-normalizing
+tests in addition to conversion fundamentals, voices, notation spans,
+percussion identity, instrument changes, and grace/tuplet behavior.
 
 ## Project files
 

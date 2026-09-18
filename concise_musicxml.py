@@ -38,6 +38,17 @@ def descendants(node: ET.Element, name: str):
     return (x for x in node.iter() if local(x.tag) == name)
 
 
+def notation_elements(note: ET.Element, name: str):
+    """Yield a notation type across every <notations> block on a note."""
+    return (
+        item
+        for notations in note
+        if local(notations.tag) == "notations"
+        for item in notations.iter()
+        if local(item.tag) == name
+    )
+
+
 def quote(value: str) -> str:
     """A compact, unambiguous JSON string."""
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
@@ -51,12 +62,25 @@ def safe_id(value: str) -> str:
     return re.sub(r"\s+", "_", value.strip()) or "?"
 
 
+def compact_text(value: str) -> str:
+    """Quote free text used inside compact note markers."""
+    return quote(value.strip())
+
+
+def compact_atom(value: str) -> str:
+    """Use an unquoted atom when safe, otherwise a JSON string."""
+    value = value.strip()
+    return value if re.fullmatch(r"[A-Za-z0-9_.#/+%\-]+", value) else quote(value)
+
+
 @dataclass
 class Event:
     start: Fraction
     duration: Fraction
     token: str
     chord: bool = False
+    instrument: str = ""
+    arpeggiations: tuple[tuple[str, str, str], ...] = ()
 
 
 @dataclass
@@ -119,6 +143,96 @@ def pitch_token(note: ET.Element, instrument_aliases: dict[str, str]) -> str:
     return f"{step}{accidental}{octave}"
 
 
+def span_marker(element: ET.Element, prefix: str) -> str:
+    """Compact marker for a numbered start/stop note relationship."""
+    relation_type = element.get("type", "")
+    number = safe_id(element.get("number", "1"))
+    symbol = {"start": ">", "stop": "<", "continue": "~"}.get(relation_type, ":" + relation_type)
+    marker = prefix + number + symbol
+    value = (element.text or "").strip()
+    return marker + (":" + compact_text(value) if value else "")
+
+
+TRILL_SOUND_ATTRIBUTES = (
+    ("start-note", "start"),
+    ("trill-step", "step"),
+    ("two-note-turn", "turn"),
+    ("accelerate", "accel"),
+    ("beats", "beats"),
+    ("first-beat", "first"),
+    ("second-beat", "second"),
+    ("last-beat", "last"),
+)
+
+
+def trill_semantics(element: ET.Element) -> str:
+    values = [f"{short}={element.get(attribute)}" for attribute, short in TRILL_SOUND_ATTRIBUTES if element.get(attribute)]
+    return "(" + ";".join(values) + ")" if values else ""
+
+
+def technical_markers(technical: ET.Element) -> list[str]:
+    values: list[str] = []
+    for indication in technical:
+        name = local(indication.tag)
+        value = (indication.text or "").strip()
+        if name == "harmonic":
+            kinds = [local(x.tag) for x in indication if local(x.tag) in {"natural", "artificial"}]
+            pitches = [local(x.tag).removesuffix("-pitch") for x in indication if local(x.tag).endswith("-pitch")]
+            detail = "+".join(kinds + pitches)
+            values.append("harmonic" + (":" + detail if detail else ""))
+        elif name == "bend":
+            details: list[str] = []
+            alter = text(indication, "bend-alter")
+            if alter:
+                details.append("alter=" + alter)
+            if child(indication, "pre-bend") is not None:
+                details.append("pre-bend")
+            release = child(indication, "release")
+            if release is not None:
+                details.append("release" + ("@" + release.get("offset", "") if release.get("offset") else ""))
+            if child(indication, "with-bar") is not None:
+                details.append("with-bar")
+            values.append("bend" + (":" + "+".join(details) if details else ""))
+        elif name in {"fingering", "heel", "toe"}:
+            attributes = []
+            if indication.get("alternate") == "yes":
+                attributes.append("alt")
+            if indication.get("substitution") == "yes":
+                attributes.append("sub")
+            suffix = "(" + ";".join(attributes) + ")" if attributes else ""
+            values.append(name + (":" + compact_atom(value) if value else "") + suffix)
+        elif name in {"hole", "arrow", "harmon-mute"}:
+            details: list[str] = []
+            for item in indication:
+                item_name = local(item.tag)
+                item_value = (item.text or "").strip()
+                location = item.get("location", "")
+                detail = item_name + ("=" + compact_atom(item_value) if item_value else "")
+                if location:
+                    detail += "@" + safe_id(location)
+                details.append(detail)
+            values.append(name + (":" + "+".join(details) if details else ""))
+        elif name in {"hammer-on", "pull-off"}:
+            relation_type = indication.get("type", "")
+            number = safe_id(indication.get("number", "1"))
+            symbol = {"start": ">", "stop": "<"}.get(relation_type, ":" + relation_type)
+            values.append(name + number + symbol + (":" + compact_text(value) if value else ""))
+        else:
+            values.append(name + (":" + compact_atom(value) if value else ""))
+    return values
+
+
+def arpeggiation_markers(note: ET.Element) -> tuple[tuple[str, str, str], ...]:
+    markers: list[tuple[str, str, str]] = []
+    for item in notation_elements(note, "arpeggiate"):
+        markers.append(("arp", safe_id(item.get("number", "1")), item.get("direction", "")))
+    for item in notation_elements(note, "non-arpeggiate"):
+        # top/bottom describe the drawn bracket endpoints; number carries
+        # the semantic association and is sufficient after normalization.
+        markers.append(("noarp", safe_id(item.get("number", "1")), ""))
+    return tuple(markers)
+
+
 def note_suffix(note: ET.Element) -> str:
     marks: list[str] = []
     ties = {x.get("type", "") for x in descendants(note, "tie")}
@@ -129,14 +243,92 @@ def note_suffix(note: ET.Element) -> str:
     # Slurs are separate from ties and retain their MusicXML number so nested
     # and overlapping phrases can be paired.  Other slur attributes describe
     # engraving and are intentionally omitted.
-    notations = child(note, "notations")
-    for slur in descendants(notations, "slur") if notations is not None else ():
+    notations = [x for x in note if local(x.tag) == "notations"]
+    for slur in notation_elements(note, "slur"):
         slur_type = slur.get("type", "")
         if slur_type in {"start", "stop"}:
             number = safe_id(slur.get("number", "1"))
             marks.append(f"s{number}{'>' if slur_type == 'start' else '<'}")
-    if child(note, "grace") is not None:
+    if notations:
+        for articulations in notation_elements(note, "articulations"):
+            values = []
+            for articulation in articulations:
+                name = local(articulation.tag)
+                value = (articulation.text or "").strip()
+                values.append(name + (":" + compact_text(value) if value else ""))
+            if values:
+                marks.append("art=" + "+".join(values))
+
+        for technical in notation_elements(note, "technical"):
+            values = technical_markers(technical)
+            if values:
+                marks.append("tech=" + "+".join(values))
+
+        for fermata in notation_elements(note, "fermata"):
+            shape = (fermata.text or "normal").strip() or "normal"
+            marks.append("fer=" + safe_id(shape))
+
+        for ornaments in notation_elements(note, "ornaments"):
+            names: list[str] = []
+            for ornament in ornaments:
+                name = local(ornament.tag)
+                if name == "tremolo":
+                    trem_type = ornament.get("type", "single")
+                    strokes = (ornament.text or "").strip()
+                    names.append("trem:" + trem_type + (":" + strokes if strokes else ""))
+                elif name == "wavy-line":
+                    wave_type = ornament.get("type", "continue")
+                    number = safe_id(ornament.get("number", "1"))
+                    symbol = {"start": ">", "stop": "<", "continue": "~"}.get(wave_type, ":" + wave_type)
+                    names.append(f"wav{number}{symbol}" + trill_semantics(ornament))
+                elif name == "accidental-mark":
+                    value = (ornament.text or "").strip()
+                    names.append("acc:" + safe_id(value or "?"))
+                else:
+                    value = (ornament.text or "").strip()
+                    names.append(name + trill_semantics(ornament) + (":" + compact_text(value) if value else ""))
+            if names:
+                marks.append("orn=" + "+".join(names))
+
+        for tuplet in notation_elements(note, "tuplet"):
+            tuplet_type = tuplet.get("type", "")
+            if tuplet_type in {"start", "stop"}:
+                number = safe_id(tuplet.get("number", "1"))
+                marks.append(f"tup{number}{'>' if tuplet_type == 'start' else '<'}")
+
+        for glissando in notation_elements(note, "glissando"):
+            marks.append(span_marker(glissando, "gl"))
+        for slide in notation_elements(note, "slide"):
+            marker = span_marker(slide, "slide")
+            # Bend-sound attributes affect slide realization; line-type and
+            # other graphical attributes are deliberately excluded.
+            sound = trill_semantics(slide)
+            marks.append(marker + sound)
+
+    time_modification = child(note, "time-modification")
+    if time_modification is not None:
+        actual = text(time_modification, "actual-notes")
+        normal = text(time_modification, "normal-notes")
+        if actual and normal:
+            marker = f"tm={actual}:{normal}"
+            normal_type = text(time_modification, "normal-type")
+            if normal_type:
+                dots = sum(1 for x in time_modification if local(x.tag) == "normal-dot")
+                marker += ":" + safe_id(normal_type) + ("." * dots)
+            marks.append(marker)
+
+    grace = child(note, "grace")
+    if grace is not None:
         marks.append("g")
+        if grace.get("slash") == "yes":
+            marks.append("gslash")
+        for attribute, marker in (
+            ("steal-time-previous", "gprev"),
+            ("steal-time-following", "gnext"),
+            ("make-time", "gmake"),
+        ):
+            if grace.get(attribute):
+                marks.append(marker + "=" + grace.get(attribute, ""))
     if text(note, "voice") and text(note, "voice") != "1":
         pass  # represented in the voice label
     lyrics = []
@@ -200,19 +392,97 @@ def direction_tokens(direction: ET.Element) -> list[str]:
     for wedge in descendants(direction, "wedge"):
         if wedge.get("type"):
             out.append("wedge=" + wedge.get("type", ""))
+    for pedal in descendants(direction, "pedal"):
+        pedal_type = pedal.get("type", "")
+        if pedal_type:
+            number = safe_id(pedal.get("number", "1"))
+            out.append(f"ped{number}=" + pedal_type)
+    for shift in descendants(direction, "octave-shift"):
+        shift_type = shift.get("type", "")
+        if shift_type:
+            number = safe_id(shift.get("number", "1"))
+            size = shift.get("size", "")
+            out.append(f"oct{number}=" + shift_type + (":" + size if size else ""))
     return out
 
 
-def render_voice(voice: Voice) -> str:
-    grouped: dict[tuple[Fraction, Fraction], list[str]] = defaultdict(list)
-    for event in voice.events:
-        grouped[(event.start, event.duration)].append(event.token)
+def add_instrument(token: str, alias: str) -> str:
+    """Place an instrument marker after pitch and before note properties."""
+    marker = "@" + alias
+    brace = token.find("{")
+    return token + marker if brace < 0 else token[:brace] + marker + token[brace:]
+
+
+def normalized_arpeggiations(events: list[Event]) -> list[str]:
+    order: list[tuple[str, str]] = []
+    directions: dict[tuple[str, str], list[str]] = {}
+    for event in events:
+        for kind, number, direction in event.arpeggiations:
+            key = (kind, number)
+            if key not in directions:
+                order.append(key)
+                directions[key] = []
+            if direction and direction not in directions[key]:
+                directions[key].append(direction)
+    result = []
+    for kind, number in order:
+        if kind == "arp":
+            specified = directions[(kind, number)]
+            if not specified:
+                result.append(f"arp{number}")
+            for direction in specified:
+                suffix = {"up": "^", "down": "v"}.get(direction, ":" + direction)
+                result.append(f"arp{number}{suffix}")
+        else:
+            result.append(f"noarp{number}")
+    return result
+
+
+def render_voice(
+    voice: Voice,
+    instrument_states: dict[str, str] | None = None,
+    voice_key: str = "1",
+    multiple_instruments: bool = False,
+) -> str:
+    grouped: list[tuple[Fraction, Fraction, list[Event]]] = []
+    for _, event in sorted(enumerate(voice.events), key=lambda item: (item[1].start, item[0])):
+        if event.chord and grouped and grouped[-1][0] == event.start and grouped[-1][1] == event.duration:
+            grouped[-1][2].append(event)
+        else:
+            grouped.append((event.start, event.duration, [event]))
     cursor = Fraction(0)
     tokens: list[str] = []
-    for (start, duration), pitches in sorted(grouped.items()):
+    for start, duration, events in grouped:
         if start > cursor:
             tokens.append("_" + frac(start - cursor))
+        pitches = [event.token for event in events]
+        identities = [event.instrument for event in events if event.instrument]
+        if multiple_instruments and identities:
+            distinct = list(dict.fromkeys(identities))
+            state = instrument_states.get(voice_key, "") if instrument_states is not None else ""
+            mixed_event = len(distinct) > 1 or len(identities) != len(events)
+            if mixed_event:
+                pitches = [add_instrument(event.token, event.instrument) if event.instrument else event.token for event in events]
+                next_state = identities[0]
+            else:
+                next_state = distinct[0]
+            if instrument_states is not None:
+                if not mixed_event and next_state != state:
+                    # Applied to the assembled event below.
+                    state_marker = next_state
+                else:
+                    state_marker = ""
+                instrument_states[voice_key] = next_state
+            else:
+                state_marker = next_state if not mixed_event else ""
+        else:
+            state_marker = ""
         head = pitches[0] if len(pitches) == 1 else "[" + ",".join(pitches) + "]"
+        if state_marker:
+            head += "@" + state_marker
+        arpeggiations = normalized_arpeggiations(events)
+        if arpeggiations:
+            head += "{" + ",".join(arpeggiations) + "}"
         tokens.append(head + "/" + (frac(duration) if duration else "0"))
         cursor = max(cursor, start + duration)
     return " ".join(tokens)
@@ -222,12 +492,32 @@ def instrument_catalog(
     score_part: ET.Element | None, part: ET.Element
 ) -> tuple[list[InstrumentDefinition], dict[str, str]]:
     """Return definitions and deterministic part-local aliases."""
+    referenced: list[str] = []
+    referenced_set: set[str] = set()
+    has_unreferenced_pitched_note = False
+    for note in descendants(part, "note"):
+        if child(note, "rest") is not None or (child(note, "unpitched") is None and child(note, "pitch") is None):
+            continue
+        reference = child(note, "instrument")
+        xml_id = reference.get("id", "").strip() if reference is not None else ""
+        if child(note, "pitch") is not None and not xml_id:
+            has_unreferenced_pitched_note = True
+        if xml_id and xml_id not in referenced_set:
+            referenced.append(xml_id)
+            referenced_set.add(xml_id)
+
     definitions: list[InstrumentDefinition] = []
     seen: set[str] = set()
+    available: list[ET.Element] = []
     if score_part is not None:
-        for item in (x for x in score_part if local(x.tag) == "score-instrument"):
+        available = [x for x in score_part if local(x.tag) == "score-instrument"]
+        available_ids = {x.get("id", "").strip() for x in available}
+        selected = set(referenced_set)
+        if not referenced_set or has_unreferenced_pitched_note:
+            selected.update(available_ids)
+        for item in available:
             xml_id = item.get("id", "").strip()
-            if xml_id and xml_id not in seen:
+            if xml_id in selected and xml_id not in seen:
                 definitions.append(
                     InstrumentDefinition(
                         xml_id=xml_id,
@@ -237,14 +527,9 @@ def instrument_catalog(
                 )
                 seen.add(xml_id)
 
-    # A referenced ID remains meaningful even if its score-instrument
-    # definition is missing or incomplete, so retain it in the mapping.
-    for note in descendants(part, "note"):
-        if child(note, "unpitched") is None:
-            continue
-        reference = child(note, "instrument")
-        xml_id = reference.get("id", "").strip() if reference is not None else ""
-        if xml_id and xml_id not in seen:
+    # Referenced IDs remain meaningful even when their definitions are absent.
+    for xml_id in referenced:
+        if xml_id not in seen:
             definitions.append(InstrumentDefinition(xml_id=xml_id))
             seen.add(xml_id)
 
@@ -296,6 +581,8 @@ def convert(root: ET.Element, source: str = "") -> str:
                 instrument_line += " sound=" + quote(definition.sound)
             lines.append(instrument_line)
         divisions = 1
+        instrument_states: dict[str, str] = {}
+        multiple_instruments = len(instrument_aliases) > 1
         for measure in (x for x in part if local(x.tag) == "measure"):
             number = measure.get("number", "?")
             attrs: list[str] = []
@@ -330,7 +617,19 @@ def convert(root: ET.Element, source: str = "") -> str:
                     is_chord = child(item, "chord") is not None
                     start = voices[key].last_onset if is_chord else cursor
                     token = pitch_token(item, instrument_aliases) + note_suffix(item)
-                    voices[key].events.append(Event(start, duration, token, is_chord))
+                    instrument_alias = ""
+                    if child(item, "pitch") is not None and instrument_aliases:
+                        reference = child(item, "instrument")
+                        xml_id = reference.get("id", "").strip() if reference is not None else ""
+                        if xml_id:
+                            instrument_alias = instrument_aliases.get(xml_id, "?")
+                        elif len(instrument_aliases) == 1:
+                            instrument_alias = next(iter(instrument_aliases.values()))
+                        else:
+                            instrument_alias = "?"
+                    voices[key].events.append(
+                        Event(start, duration, token, is_chord, instrument_alias, arpeggiation_markers(item))
+                    )
                     if not is_chord:
                         voices[key].last_onset = start
                         if child(item, "grace") is None:
@@ -338,15 +637,24 @@ def convert(root: ET.Element, source: str = "") -> str:
             prefix = f"m{safe_id(number)}"
             if attrs:
                 prefix += " " + " ".join(attrs)
-            for at, value in sorted(annotations):
+            # Python's stable sort retains MusicXML order for semantic events
+            # sharing an offset (for example pedal stop followed by start).
+            for at, value in sorted(annotations, key=lambda annotation: annotation[0]):
                 prefix += f" @{frac(at)}:{value}"
             if not voices:
                 lines.append(prefix + " |")
             elif len(voices) == 1 and "1" in voices:
                 # Only the canonical voice 1 / staff 1 may use the shorthand.
-                lines.append(prefix + " | " + render_voice(voices["1"]))
+                lines.append(
+                    prefix
+                    + " | "
+                    + render_voice(voices["1"], instrument_states, "1", multiple_instruments)
+                )
             else:
-                rendered = [f"v{safe_id(k)}: {render_voice(v)}" for k, v in sorted(voices.items())]
+                rendered = [
+                    f"v{safe_id(k)}: {render_voice(v, instrument_states, k, multiple_instruments)}"
+                    for k, v in sorted(voices.items())
+                ]
                 lines.append(prefix + " | " + " ; ".join(rendered))
     return "\n".join(lines) + "\n"
 
