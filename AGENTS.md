@@ -74,6 +74,10 @@ Keep these distinctions explicit during implementation and review:
   intermediate database for MusicXML-to-MIDI rendering.
 - Keep the cmusic parser typed, deterministic, and lossless for canonical
   cmusic. Do not weaken it because authoritative rendering uses another path.
+- Keep concise-music-v1 stable. Develop v2 as a parallel SemanticScore renderer
+  with its own tokenizer/recursive-descent parser and canonical round-trip.
+  Grammar clarity outranks byte minimization; retain the soft representative
+  target below 10% of source MusicXML size.
 - Grow the shared semantic score layer directly from MusicXML before cmusic
   token rendering. `import_musicxml()` returns the ordered `SemanticScore`,
   `SemanticPart`, `SemanticMeasure`, and `SemanticNoteEvent` tree consumed by
@@ -97,6 +101,10 @@ Keep these distinctions explicit during implementation and review:
 - Performance plans may affect realization but must not invent, delete, or
   mutate source-event identity. LLMs interpret performance; they do not
   reconstruct notes already present in the score.
+- Expressive MIDI gives the LLM `render_cmusic(SemanticScore)` as its compact
+  read-only view, then applies the validated PerformancePlan to the original
+  SemanticScore. Never parse cmusic or reconstruct score events in the MIDI
+  path. Keep full recursive SemanticScore serialization diagnostic-only.
 - MIDI controller and keyswitch conventions belong to renderer profiles and
   sample-library adapters, not to the score model or cmusic grammar.
 - Keep authored MusicXML MIDI channel/program/unpitched values on the existing
@@ -112,7 +120,7 @@ Run before committing:
 
 ```console
 python -m unittest -v
-python -m py_compile concise_musicxml.py concise_music_parser.py concise_musicxml_gui.py neutral_midi.py semantic_audit.py test_concise_musicxml.py test_concise_music_parser.py test_concise_musicxml_gui.py test_neutral_midi.py
+python -m py_compile concise_musicxml.py concise_music_parser.py concise_music_v2.py concise_musicxml_gui.py neutral_midi.py expressive_midi.py semantic_audit.py test_concise_musicxml.py test_concise_music_parser.py test_concise_music_v2.py test_concise_musicxml_gui.py test_neutral_midi.py test_expressive_midi.py
 ```
 
 For MusicXML notation changes, include tests for multiple events on one note,

@@ -125,7 +125,29 @@ Its AST models the public compact language, including its intentional
 normalizations. The future authoritative AST models imported score identity.
 The two may share small value types later, but they have different contracts.
 
-Expressive MIDI is intentionally outside the current implementation scope.
+## LLM performance planning
+
+`expressive_midi.py` renders the authoritative `SemanticScore` to cmusic as the
+compact, read-only LLM view. It uses v2 by default and retains v1 as a fallback.
+The LLM returns only a validated `PerformancePlan`
+containing interpretation controls. Current locations are global measure
+indices, which map directly to `NoteProvenance.measure_index`; no new cmusic
+event IDs are needed for the current measure-scoped controls.
+
+`apply_performance_plan()` combines the authoritative score with that plan,
+changes a copied performed-event realization, re-runs provenance accounting,
+and passes the result to the deterministic MIDI encoder. cmusic is never parsed
+in this path and is not score truth. The full recursive SemanticScore serializer
+remains available only as diagnostic tooling for size comparisons and tests.
+
+## cmusic v2 experiment
+
+`concise_music_v2.py` is a parallel renderer/parser built from `SemanticScore`;
+it does not modify v1. Its grammar uses recursive blocks for score structure,
+whitespace-separated events/chord members, semicolon-delimited semantic
+properties, and readable relation names. The v2 parser is validation tooling and is not on the expressive
+MIDI critical path. Expressive rendering still combines the original
+`SemanticScore` with the returned `PerformancePlan`.
 
 ## Neutral realization and MIDI
 

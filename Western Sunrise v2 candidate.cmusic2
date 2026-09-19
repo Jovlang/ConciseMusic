@@ -1,0 +1,1423 @@
+score format="concise-music-v2" title="Western Sunrise" creator="Lycomedes" source="Western Sunrise v2 - Full score - 01 .musicxml" {
+part P1 name="Violin" {
+  instrument alias="I1" id="instrument-1" name="Violin" sound="strings.violin";
+  m1 {
+    attributes ["div=4"; "key1=3"; "time=4/4"; "clef1=G2"];
+    directions [at 0 value="dyn=p"; at 0 value="tempo=100(quarter)"];
+    v1s1 { E5/4 }
+  }
+  m2 {
+    attributes ["div=4"];
+    v1s1 { C#5/4 }
+  }
+  m3 {
+    attributes ["div=4"];
+    v1s1 { D5/1 {slur-start=1}  B4/1  E4/1/2  G#4/1/2  B4/1/2  G#4/1/2 {slur-stop=1} }
+  }
+  m4 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=diminuendo"; at 4 value="wedge=stop"; at 4 value="dyn=pp"];
+    v1s1 { A4/4 }
+  }
+  m5 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m6 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m7 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m8 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m9 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m10 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m11 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m12 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m13 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m14 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m15 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m16 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m17 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m18 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m19 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m20 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m21 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m22 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m23 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m24 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m25 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m26 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m27 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m28 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m29 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m30 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m31 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m32 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m33 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m34 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m35 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m36 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m37 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m38 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m39 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m40 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m41 {
+    attributes ["div=4"];
+    v1s1 { r/4 {fer=angled} }
+  }
+  m42 {
+    attributes ["div=4"; "key1=0"];
+    directions [at 0 value="dyn=pp"];
+    v1s1 { r/4 }
+  }
+  m43 {
+    attributes ["div=4"];
+    v1s1 { r/4 {fer=normal} }
+  }
+  m44 {
+    attributes ["div=4"; "time=4/4"];
+    v1s1 { r/4 }
+  }
+  m45 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m46 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m47 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m48 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m49 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m50 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m51 {
+    attributes ["div=4"];
+    directions [at 0 value="text=\"rit.\""];
+    v1s1 { r/4 }
+  }
+  m52 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m53 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m54 {
+    attributes ["div=4"];
+    directions [at 0 value="text=\"accel.\""];
+    v1s1 { r/4 }
+  }
+  m55 {
+    attributes ["div=4"];
+    directions [at 2 value="wedge=crescendo"; at 2 value="dyn=pp"; at 4 value="wedge=stop"];
+    v1s1 { r/2  G#4/2 }
+  }
+  m56 {
+    attributes ["div=4"; "key1=3"];
+    directions [at 0 value="wedge=crescendo"; at 0 value="dyn=p"; at 0 value="text=\"A tempo\""; at 4 value="wedge=stop"];
+    v1s1 { A4/4 {slur-start=1} }
+  }
+  m57 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { E4/4 }
+  }
+  m58 {
+    attributes ["div=4"];
+    directions [at 5/4 value="wedge=diminuendo"; at 13/4 value="wedge=stop"];
+    v1s1 { F#4/4 }
+  }
+  m59 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=p"];
+    v1s1 { D4/4 }
+  }
+  m60 {
+    attributes ["div=4"];
+    v1s1 { B3/4 }
+  }
+  m61 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { G#4/4 }
+  }
+  m62 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=diminuendo"; at 0 value="dyn=mp"; at 4 value="wedge=stop"];
+    v1s1 { A4/4 {tie-start=1} }
+  }
+  m63 {
+    attributes ["div=4"];
+    v1s1 { A4/3 {tie-stop=1; slur-stop=1}  r/1 }
+  }
+  m64 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { A3/2 {slur-start=1}  C#4/2 }
+  }
+  m65 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { E4/2  C#4/2 {slur-stop=1} }
+  }
+  m66 {
+    attributes ["div=4"];
+    v1s1 { B3/2 {slur-start=1}  F#4/2 }
+  }
+  m67 {
+    attributes ["div=4"];
+    v1s1 { G#4/2  E4/2 {slur-stop=1} }
+  }
+  m68 {
+    attributes ["div=4"];
+    v1s1 { A3/2 {slur-start=1}  C#4/2 }
+  }
+  m69 {
+    attributes ["div=4"];
+    v1s1 { F#4/2  D4/2 {slur-stop=1} }
+  }
+  m70 {
+    attributes ["div=4"];
+    v1s1 { B3/2 {slur-start=1}  F#4/2 }
+  }
+  m71 {
+    attributes ["div=4"];
+    directions [at 2 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { G#4/2  E4/2 {slur-stop=1} }
+  }
+  m72 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mf"];
+    v1s1 { A4/1 {slur-start=1}  C#5/1  E5/1  C#5/1 }
+  }
+  m73 {
+    attributes ["div=4"];
+    v1s1 { B4/4 {slur-stop=1} }
+  }
+  m74 {
+    attributes ["div=4"];
+    v1s1 { B4/1 {slur-start=1}  D5/1  F#5/1  G#5/1 {slur-stop=1} }
+  }
+  m75 {
+    attributes ["div=4"];
+    v1s1 { E5/4 }
+  }
+  m76 {
+    attributes ["div=4"];
+    v1s1 { A5/1 {slur-start=1}  C#5/1  E5/1  C#5/1 {slur-stop=1} }
+  }
+  m77 {
+    attributes ["div=4"];
+    v1s1 { F#5/2 {slur-start=1}  D5/2 {slur-stop=1} }
+  }
+  m78 {
+    attributes ["div=4"];
+    v1s1 { B4/1 {slur-start=1}  D5/1  F#5/1  B5/1 }
+  }
+  m79 {
+    attributes ["div=4"];
+    directions [at 2 value="wedge=diminuendo"];
+    v1s1 { G#5/2  C#5/2 }
+  }
+  m80 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=pp"; at 3/4 value="wedge=stop"];
+    v1s1 { B4/4 {slur-stop=1} }
+  }
+  m81 {
+    attributes ["div=4"];
+    v1s1 { G#4/1 {slur-start=1}  F#4/1  E4/2 }
+  }
+  m82 {
+    attributes ["div=4"];
+    directions [at 1 value="wedge=diminuendo"; at 4 value="wedge=stop"];
+    v1s1 { A3/1  C#4/2 {slur-stop=1}  r/1 }
+  }
+  m83 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+  }
+  m84 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=pp"];
+    v1s1 { C#4/1  D#4/1/2  B3/1/2 {tie-start=1}  B3/1 {tie-stop=1; tie-start=1}  B3/1/2 {tie-stop=1}  r/1/2 }
+  }
+  m85 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { G#5/4 {ornament=trill-mark} }
+  }
+  m86 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=diminuendo"; at 0 value="dyn=mf"; at 4 value="wedge=stop"];
+    v1s1 { A5/2  E5/1/2  D5/1/2  B4/1/2  E5/1/2 }
+  }
+  m87 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { A4/3  r/1 }
+  }
+  m88 {
+    attributes ["div=4"];
+    directions [at 1/2 value="dyn=p"];
+    v1s1 { r/1/2  C#4/1/2 {slur-start=1}  D4/1/2  B3/1/2  C#4/1  A3/1 }
+  }
+  m89 {
+    attributes ["div=4"];
+    v1s1 { A4/1 {slur-stop=1}  A4/1/2 {slur-start=1}  F#4/1/2  G#4/1  E4/1 }
+  }
+  m90 {
+    attributes ["div=4"];
+    v1s1 { B4/1 {slur-stop=1}  F#4/1/2 {slur-start=1}  D4/1/2  B3/1/2  C#4/1/2  D4/1/2  B3/1/2 }
+  }
+  m91 {
+    attributes ["div=4"];
+    v1s1 { G#3/1/2  A3/1/2  B3/1/2  G#3/1/2  A3/2 {slur-stop=1} }
+  }
+  m92 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"];
+    v1s1 { C#4/2 {slur-start=1}  E4/2 }
+  }
+  m93 {
+    attributes ["div=4"];
+    v1s1 { D4/2  C#4/2 {slur-stop=1} }
+  }
+  m94 {
+    attributes ["div=4"];
+    v1s1 { A3/2 {slur-start=1}  C#4/2 }
+  }
+  m95 {
+    attributes ["div=4"];
+    directions [at 2 value="wedge=stop"; at 2 value="dyn=mp"];
+    v1s1 { E4/2  C#5/2 {slur-stop=1} }
+  }
+  m96 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"; at 0 value="dyn=pp"; at 4 value="wedge=stop"];
+    v1s1 { G#5/4 {ornament=trill-mark} }
+  }
+  m97 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"; at 0 value="dyn=p"; at 4 value="wedge=stop"];
+    v1s1 { B5/4 {ornament=trill-mark} }
+  }
+  m98 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mf"];
+    v1s1 { A5/1 {slur-start=1}  E5/1  C#5/1  E5/1 {slur-stop=1} }
+  }
+  m99 {
+    attributes ["div=4"];
+    v1s1 { D5/1 {slur-start=1}  F#5/1  B4/2 {slur-stop=1} }
+  }
+  m100 {
+    attributes ["div=4"];
+    v1s1 { C#4/1 {slur-start=1}  E4/1  A4/1  C#5/1 {slur-stop=1} }
+  }
+  m101 {
+    attributes ["div=4"];
+    v1s1 { A4/1/2 {slur-start=1}  E4/1/2  B4/1/2  G#4/1/2 {slur-stop=1}  A4/2 {tie-start=1} }
+  }
+  m102 {
+    attributes ["div=4"];
+    v1s1 { A4/4 {tie-stop=1} }
+  }
+}
+part P2 name="Violoncello" {
+  instrument alias="I1" id="instrument-2" name="Violoncello" sound="strings.cello";
+  m1 {
+    attributes ["div=12"; "key1=3"; "time=4/4"; "clef1=F4"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { A2/2 {slur-start=1}  C#3/2 }
+  }
+  m2 {
+    attributes ["div=12"];
+    v1s1 { E3/2  C#3/2 {slur-stop=1} }
+  }
+  m3 {
+    attributes ["div=12"];
+    v1s1 { D3/1/2 {slur-start=1; articulation=staccato}  C#3/1/2 {articulation=staccato}  B2/1/2 {articulation=staccato}  D3/1/2 {slur-stop=1; articulation=staccato}  E2/1  B2/1/3 {slur-start=1; tie-start=up1; time-modification=3:2:eighth}  C#3/1/3 {time-modification=3:2:eighth}  B2/1/3 {slur-stop=1; tie-stop=up1; time-modification=3:2:eighth} }
+  }
+  m4 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=diminuendo"; at 4 value="wedge=stop"; at 4 value="dyn=pp"];
+    v1s1 { A2/4 }
+  }
+  m5 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m6 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m7 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m8 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { r/4 }
+  }
+  m9 {
+    attributes ["div=12"];
+    v1s1 { A2/2 {slur-start=1}  C#3/2 }
+  }
+  m10 {
+    attributes ["div=12"];
+    v1s1 { E3/2  C#3/2 {slur-stop=1} }
+  }
+  m11 {
+    attributes ["div=12"];
+    v1s1 { B2/2 {slur-start=1}  F#3/2 }
+  }
+  m12 {
+    attributes ["div=12"];
+    v1s1 { G#3/2  E3/2 {slur-stop=1} }
+  }
+  m13 {
+    attributes ["div=12"];
+    v1s1 { A2/2 {slur-start=1}  C#3/2 }
+  }
+  m14 {
+    attributes ["div=12"];
+    v1s1 { F#3/2  D3/2 {slur-stop=1} }
+  }
+  m15 {
+    attributes ["div=12"];
+    v1s1 { B2/2 {slur-start=1}  F#3/2 }
+  }
+  m16 {
+    attributes ["div=12"];
+    v1s1 { G#3/2  E3/2 {slur-stop=1} }
+  }
+  m17 {
+    attributes ["div=12"];
+    v1s1 { A3/4 {slur-start=1} }
+  }
+  m18 {
+    attributes ["div=12"];
+    v1s1 { D3/4 }
+  }
+  m19 {
+    attributes ["div=12"];
+    v1s1 { G#3/4 }
+  }
+  m20 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=diminuendo"; at 4 value="wedge=stop"];
+    v1s1 { E3/4 {slur-stop=1} }
+  }
+  m21 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m22 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m23 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m24 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m25 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m26 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=p"];
+    v1s1 { D3/2 {slur-start=1}  G#3/1  B3/1 }
+  }
+  m27 {
+    attributes ["div=12"];
+    v1s1 { A3/2  E3/2 }
+  }
+  m28 {
+    attributes ["div=12"];
+    v1s1 { C#3/2  A2/2 {slur-stop=1} }
+  }
+  m29 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { r/1/2  C#3/1/2 {slur-start=1}  D3/1/2  B2/1/2  C#3/1  A2/1 }
+  }
+  m30 {
+    attributes ["div=12"];
+    v1s1 { A3/1 {slur-stop=1}  A3/1/2 {slur-start=1}  F#3/1/2  G#3/1  E3/1 }
+  }
+  m31 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=p"; at 1 value="dyn=mp"];
+    v1s1 { B3/1 {slur-stop=1}  F#3/1/2 {slur-start=1}  D3/1/2  B2/1/2  C#3/1/2  D3/1/2  B2/1/2 }
+  }
+  m32 {
+    attributes ["div=12"];
+    v1s1 { G#2/1/2  A2/1/2  B2/1/2  G#2/1/2  A2/2 {tie-start=1} }
+  }
+  m33 {
+    attributes ["div=12"];
+    v1s1 { A2/1 {tie-stop=1; slur-stop=1}  r/1  r/2 }
+  }
+  m34 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m35 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m36 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m37 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=p"];
+    v1s1 { G#2/2 {slur-start=1}  B2/2 }
+  }
+  m38 {
+    attributes ["div=12"];
+    v1s1 { A3/4 }
+  }
+  m39 {
+    attributes ["div=12"];
+    v1s1 { E3/4 }
+  }
+  m40 {
+    attributes ["div=12"];
+    v1s1 { C#3/4 }
+  }
+  m41 {
+    attributes ["div=12"];
+    directions [at 2 value="wedge=diminuendo"; at 4 value="wedge=stop"];
+    v1s1 { D3/2  C#3/2 {slur-stop=1; fer=angled} }
+  }
+  m42 {
+    attributes ["div=12"; "key1=0"];
+    directions [at 0 value="dyn=pp"];
+    v1s1 { E2/4 }
+  }
+  m43 {
+    attributes ["div=12"];
+    v1s1 { D2/4 {fer=normal} }
+  }
+  m44 {
+    attributes ["div=12"; "time=4/4"];
+    v1s1 { r/4 }
+  }
+  m45 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m46 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=pp"];
+    v1s1 { A2/4 }
+  }
+  m47 {
+    attributes ["div=12"];
+    v1s1 { B2/4 }
+  }
+  m48 {
+    attributes ["div=12"];
+    v1s1 { C3/4 }
+  }
+  m49 {
+    attributes ["div=12"];
+    v1s1 { A2/4 }
+  }
+  m50 {
+    attributes ["div=12"];
+    v1s1 { D3/4 }
+  }
+  m51 {
+    attributes ["div=12"];
+    v1s1 { B2/4 }
+  }
+  m52 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m53 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m54 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=crescendo"; at 0 value="dyn=pp"];
+    v1s1 { A2/1 {slur-start=1}  E3/1  A3/1  E3/1 {slur-stop=1} }
+  }
+  m55 {
+    attributes ["div=12"];
+    directions [at 4 value="wedge=stop"];
+    v1s1 { B2/1 {slur-start=1}  D3/1  G#3/1  E3/1 {slur-stop=1} }
+  }
+  m56 {
+    attributes ["div=12"; "key1=3"];
+    directions [at 0 value="wedge=crescendo"; at 0 value="dyn=p"; at 4 value="wedge=stop"];
+    v1s1 { A2/4 {slur-start=1} }
+  }
+  m57 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { C#3/4 }
+  }
+  m58 {
+    attributes ["div=12"];
+    directions [at 17/12 value="wedge=diminuendo"; at 41/12 value="wedge=stop"];
+    v1s1 { D3/4 }
+  }
+  m59 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=p"];
+    v1s1 { B2/4 }
+  }
+  m60 {
+    attributes ["div=12"];
+    v1s1 { D3/4 }
+  }
+  m61 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { E3/4 }
+  }
+  m62 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=diminuendo"; at 0 value="dyn=mp"; at 4 value="wedge=stop"];
+    v1s1 { A3/4 {tie-start=1} }
+  }
+  m63 {
+    attributes ["div=12"];
+    v1s1 { A3/3 {tie-stop=1; slur-stop=1}  r/1 }
+  }
+  m64 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m65 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m66 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m67 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m68 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m69 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m70 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m71 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m72 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=mf"];
+    v1s1 { C#3/4 {slur-start=1} }
+  }
+  m73 {
+    attributes ["div=12"];
+    v1s1 { D3/4 }
+  }
+  m74 {
+    attributes ["div=12"];
+    v1s1 { G#3/4 }
+  }
+  m75 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=diminuendo"; at 4 value="wedge=stop"];
+    v1s1 { E3/4 {slur-stop=1} }
+  }
+  m76 {
+    attributes ["div=12"];
+    v1s1 { C#3/4 {slur-start=1} }
+  }
+  m77 {
+    attributes ["div=12"];
+    v1s1 { D3/4 }
+  }
+  m78 {
+    attributes ["div=12"];
+    v1s1 { E3/4 }
+  }
+  m79 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=diminuendo"; at 4 value="wedge=stop"];
+    v1s1 { C#3/3  r/1 }
+  }
+  m80 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=pp"];
+    v1s1 { D3/4 {tie-start=1} }
+  }
+  m81 {
+    attributes ["div=12"];
+    v1s1 { D3/2 {tie-stop=1; slur-stop=1}  E3/2 {tie-start=1} }
+  }
+  m82 {
+    attributes ["div=12"];
+    v1s1 { E3/4 {tie-stop=1} }
+  }
+  m83 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=crescendo"; at 0 value="dyn=pp"];
+    v1s1 { D3/4 }
+  }
+  m84 {
+    attributes ["div=12"];
+    directions [at 4 value="wedge=stop"];
+    v1s1 { C#3/1  D#3/1/2  B2/1/2 {tie-start=1}  B2/1 {tie-stop=1; tie-start=1}  B2/1/2 {tie-stop=1}  r/1/2 }
+  }
+  m85 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { E2/2 {slur-start=1}  E3/1  D3/1 }
+  }
+  m86 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=diminuendo"; at 0 value="dyn=mf"; at 4 value="wedge=stop"];
+    v1s1 { C#3/2  E3/2 }
+  }
+  m87 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { A3/3 {slur-stop=1}  r/1 }
+  }
+  m88 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m89 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m90 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m91 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m92 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m93 {
+    attributes ["div=12"];
+    v1s1 { r/4 }
+  }
+  m94 {
+    attributes ["div=12"];
+    v1s1 { E3/2 {slur-start=1}  A3/1  E3/1 }
+  }
+  m95 {
+    attributes ["div=12"];
+    v1s1 { C#3/2  E3/2 {slur-stop=1} }
+  }
+  m96 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { B2/2 {slur-start=1}  D3/2 }
+  }
+  m97 {
+    attributes ["div=12"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { B3/2  D4/2 }
+  }
+  m98 {
+    attributes ["div=12"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { A3/2  E3/2 }
+  }
+  m99 {
+    attributes ["div=12"];
+    v1s1 { D3/2  E3/2 }
+  }
+  m100 {
+    attributes ["div=12"];
+    v1s1 { A3/2  C#3/2 }
+  }
+  m101 {
+    attributes ["div=12"];
+    v1s1 { E3/1  G#3/1  A3/2 {tie-start=1} }
+  }
+  m102 {
+    attributes ["div=12"];
+    v1s1 { A3/4 {tie-stop=1; slur-stop=1} }
+  }
+}
+part P3 name="Piano" {
+  instrument alias="I1" id="instrument-3" name="Piano" sound="keyboard.piano";
+  m1 {
+    attributes ["div=4"; "key1=3"; "key2=3"; "time=4/4"; "clef1=G2"; "clef2=F4"];
+    v1s1 { r/4 }
+    v2s2 { r/4 }
+  }
+  m2 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+    v2s2 { r/4 }
+  }
+  m3 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+    v2s2 { r/4 }
+  }
+  m4 {
+    attributes ["div=4"];
+    directions [at 1 value="dyn=p"];
+    v1s1 { r/1  C#5/1 {slur-start=1}  D5/1 {slur-stop=1}  B4/1 {ornament=trill-mark} }
+    v2s2 { r/4 }
+  }
+  m5 {
+    attributes ["div=4"];
+    v1s1 { A4/1 {slur-start=1}  C#5/1  E5/1  A4/1 {slur-stop=1} }
+    v2s2 { chord /4 { C#4 E3 } }
+  }
+  m6 {
+    attributes ["div=4"];
+    v1s1 { G#4/1 {slur-start=1}  B4/1  D5/1/2  E5/1/2  F#5/1/2 {slur-stop=1}  D5/1/2 }
+    v2s2 { chord /4 { B3 E3 } }
+  }
+  m7 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { B4 {slur-start=1} G#4 }  E4/1  B4/1/2  C#5/1/2  D5/1/2 {slur-stop=1}  B4/1/2 }
+    v2s2 { chord /4 { E3 B2 } }
+  }
+  m8 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { A4 C#4 }  E4/1  B4/1/2  C#5/1/2  D5/1/2  B4/1/2 }
+    v2s2 { A2/1  chord /1 { C#4 C#3 }  chord /1 { D4 D3 }  chord /1 { B3 B2 } }
+  }
+  m9 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { A4/1 {slur-start=1}  C#5/1  E5/1  C#5/1 }
+    v2s2 { chord /4 { E3 C#3 A2 } }
+  }
+  m10 {
+    attributes ["div=4"];
+    v1s1 { B4/4 {slur-stop=1} }
+    v2s2 { B2/1  E3/1  G#3/1  E3/1 }
+  }
+  m11 {
+    attributes ["div=4"];
+    v1s1 { B4/1 {slur-start=1}  D5/1  F#5/1  G#5/1 }
+    v2s2 { chord /4 { F#3 D3 B2 } }
+  }
+  m12 {
+    attributes ["div=4"];
+    v1s1 { E5/4 {slur-stop=1} }
+    v2s2 { B2/1  E3/1  D3/1  B2/1 }
+  }
+  m13 {
+    attributes ["div=4"];
+    v1s1 { A5/1 {slur-start=1}  C#5/1  E5/1  C#5/1 }
+    v2s2 { chord /4 { E3 C#3 A2 } }
+  }
+  m14 {
+    attributes ["div=4"];
+    v1s1 { F#5/2  D5/2 {slur-stop=1} }
+    v2s2 { B2/1  D3/1  F#3/1  D3/1 }
+  }
+  m15 {
+    attributes ["div=4"];
+    v1s1 { B4/1 {slur-start=1}  D5/1  F#5/1  C#6/1 }
+    v2s2 { chord /2 { D3 B2 }  chord /2 { F#3 D3 } }
+  }
+  m16 {
+    attributes ["div=4"];
+    directions [at 2 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { B5/2 {slur-stop=1}  E5/1/2 {slur-start=1}  D5/1/2  B4/1/2  E5/1/2 {slur-stop=1} }
+    v2s2 { chord /1 { E3 G#2 }  B2/1  E3/1  B2/1 }
+  }
+  m17 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mf"];
+    v1s1 { A4/1/2 {slur-start=1}  C#5/1/2  E5/1  A5/1  C#5/1 }
+    v2s2 { A2/1/2  E3/1/2  C#3/1/2  E3/1/2  A2/1/2  E3/1/2  C#3/1/2  E3/1/2 }
+  }
+  m18 {
+    attributes ["div=4"];
+    v1s1 { D5/1  B4/1/2  A4/1/2  G#4/1  E4/1 {slur-stop=1} }
+    v2s2 { A2/1/2  D3/1/2  B2/1/2  D3/1/2  A2/1/2  D3/1/2  B2/1/2  D3/1/2 }
+  }
+  m19 {
+    attributes ["div=4"];
+    v1s1 { B4/1 {slur-start=1}  D5/1  E5/1  B4/1 }
+    v2s2 { G#2/1/2  E3/1/2  B2/1/2  E3/1/2  G#2/1/2  E3/1/2  B2/1/2  E3/1/2 }
+  }
+  m20 {
+    attributes ["div=4"];
+    v1s1 { C#5/1  E5/1/2  C#5/1/2  A4/2 {slur-stop=1} }
+    v2s2 { C#3/1/2  E3/1/2  A3/1/2  E3/1/2  C#3/2 }
+  }
+  m21 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=p"];
+    v1s1 { F#5/2 {slur-start=1}  D5/1  B4/1 }
+    v2s2 { r/4 }
+  }
+  m22 {
+    attributes ["div=4"];
+    v1s1 { C#5/1  D5/1  E5/2 }
+    v2s2 { r/4 }
+  }
+  m23 {
+    attributes ["div=4"];
+    v1s1 { C#5/1  A4/3 {slur-stop=1} }
+    v2s2 { r/4 }
+  }
+  m24 {
+    attributes ["div=4"];
+    v1s1 { B4/1  G#4/1/2 {slur-start=1}  A4/1/2 {slur-stop=1}  r/2 }
+    v2s2 { r/4 }
+  }
+  m25 {
+    attributes ["div=4"];
+    v1s1 { C#5/1  A#4/1/2 {slur-start=1}  B4/1/2 {slur-stop=1}  r/2 }
+    v2s2 { r/4 }
+  }
+  m26 {
+    attributes ["div=4"];
+    v1s1 { D5/2 {slur-start=1}  E5/1  D5/1 {slur-stop=1} }
+    v2s2 { r/4 }
+  }
+  m27 {
+    attributes ["div=4"];
+    v1s1 { C#5/1/2  E5/1/2  A5/1/2  E5/1/2  A5/1/2  E5/1/2  D5/1/2  B4/1/2 }
+    v2s2 { A2/1/2  C#3/1/2  E3/1/2  A3/1/2  C#3/1/2  E3/1/2  D3/1/2  B2/1/2 }
+  }
+  m28 {
+    attributes ["div=4"];
+    v1s1 { A4/4 }
+    v2s2 { A2/4 }
+  }
+  m29 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+    v2s2 { r/4 }
+  }
+  m30 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+    v2s2 { r/4 }
+  }
+  m31 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+    v2s2 { r/4 }
+  }
+  m32 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+    v2s2 { r/4 }
+  }
+  m33 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=p"];
+    v1s1 { E5/1 {slur-start=1}  E5/1/2  F#5/1/2  E5/1  C#5/1 }
+    v2s2 { r/4 }
+  }
+  m34 {
+    attributes ["div=4"];
+    v1s1 { D5/1  B4/1  C#5/2 {slur-stop=1} }
+    v2s2 { r/4 }
+  }
+  m35 {
+    attributes ["div=4"];
+    v1s1 { E5/2 {slur-start=1}  E5/1  B4/1 }
+    v2s2 { chord /4 { A3 {tie-start=1} E3 {tie-start=2} A2 {tie-start=3} } }
+  }
+  m36 {
+    attributes ["div=4"];
+    v1s1 { C#5/2  A4/2 {slur-stop=1} }
+    v2s2 { chord /4 { A3 {tie-stop=1} E3 {tie-stop=2} A2 {tie-stop=3} } }
+  }
+  m37 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { G#4/1/2 {slur-start=1}  B4/1/2  D5/1/2  E#5/1/2 {slur-stop=1}  G#4/1/2 {slur-start=1}  B4/1/2  D5/1/2  E#5/1/2 {slur-stop=1} }
+    v2s2 { r/4 }
+  }
+  m38 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { E5/1  E5/1/2  F#5/1/2  E5/1  C#5/1 }
+    v2s2 { A2/1/2  E3/1/2  C#3/1/2  E3/1/2  A2/1/2  E3/1/2  C#3/1/2  E3/1/2 }
+  }
+  m39 {
+    attributes ["div=4"];
+    v1s1 { D5/1  B4/1  E5/2 }
+    v2s2 { D3/1/2  E3/1/2  B2/1/2  E3/1/2  D3/1/2  E3/1/2  B2/1/2  E3/1/2 }
+  }
+  m40 {
+    attributes ["div=4"];
+    v1s1 { E5/1  E5/1/2  F#5/1/2  E5/1  C#5/1 }
+    v2s2 { A2/1/2  E3/1/2  C#3/1/2  E3/1/2  A2/1/2  E3/1/2  C#3/1/2  E3/1/2 }
+  }
+  m41 {
+    attributes ["div=4"];
+    v1s1 { D5/1  B4/1  A4/2 {fer=angled} }
+    v2s2 { D3/1/2  E3/1/2  B2/1/2  E3/1/2  A3/2 {fer=angled} }
+  }
+  m42 {
+    attributes ["div=4"; "key1=0"; "key2=0"];
+    v1s1 { chord /4 { F5 C5 D4 } }
+    v2s2 { chord /4 { B3 E3 G#2 } }
+  }
+  m43 {
+    attributes ["div=4"];
+    v1s1 { chord /4 { G#5 {fer=normal} D5 E4 } }
+    v2s2 { chord /4 { E3 {fer=normal} C3 F2 B1 } }
+  }
+  m44 {
+    attributes ["div=4"; "time=4/4"];
+    directions [at 0 value="dyn=p"];
+    v1s1 { E4/1 {slur-start=1}  A4/1 {slur-stop=1}  E4/1 {slur-start=1}  C5/1 {slur-stop=1} }
+    v2s2 { r/4 }
+  }
+  m45 {
+    attributes ["div=4"];
+    v1s1 { B4/1  B4/1/2  A4/1/2  B4/1  C5/1 }
+    v2s2 { r/4 }
+  }
+  m46 {
+    attributes ["div=4"];
+    v1s1 { chord /2 { C6 {slur-start=1} A5 E5 A4 }  C5/2 {slur-stop=1} }
+    v2s2 { A3/1  E3/1  C4/1  A3/1 }
+  }
+  m47 {
+    attributes ["div=4"];
+    v1s1 { B4/2 {slur-start=1}  D5/2 {slur-stop=1} }
+    v2s2 { B3/1  E3/1  D4/1  B3/1 }
+  }
+  m48 {
+    attributes ["div=4"];
+    v1s1 { C5/1 {slur-start=1}  A4/1  E4/1  C5/1 {slur-stop=1} }
+    v2s2 { A3/1  C4/1  G#3/1  E3/1 }
+  }
+  m49 {
+    attributes ["div=4"];
+    v1s1 { A4/2  B4/1  C5/1 }
+    v2s2 { A3/4 }
+  }
+  m50 {
+    attributes ["div=4"];
+    v1s1 { D5/4 }
+    v2s2 { F3/1  D3/1  B2/1  D3/1 }
+  }
+  m51 {
+    attributes ["div=4"];
+    v1s1 { D5/1  E5/1  C5/1  B4/1 }
+    v2s2 { B2/1  D3/1  G2/1  B2/1 }
+  }
+  m52 {
+    attributes ["div=4"];
+    v1s1 { C5/1  D5/1  E5/1  C5/1 }
+    v2s2 { C3/4 }
+  }
+  m53 {
+    attributes ["div=4"];
+    v1s1 { B4/4 }
+    v2s2 { F3/1  G3/1  A3/1  F3/1 }
+  }
+  m54 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+    v2s2 { r/4 }
+  }
+  m55 {
+    attributes ["div=4"];
+    v1s1 { r/4 }
+    v2s2 { r/4 }
+  }
+  m56 {
+    attributes ["div=4"; "key1=3"; "key2=3"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { A4/4 }
+    v2s2 { r/1  chord /1 { E3 C#3 }  chord /1 { E3 C#3 }  chord /1 { E3 C#3 } }
+  }
+  m57 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { A4/1  C#5/1  E5/1  A5/1 }
+    v2s2 { r/1  chord /1 { E3 C#3 }  chord /1 { E3 C#3 }  chord /1 { E3 C#3 } }
+  }
+  m58 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=diminuendo"; at 0 value="dyn=mf"; at 4 value="wedge=stop"];
+    v1s1 { F#5/3  D5/1 }
+    v2s2 { r/1  chord /1 { F#3 D3 }  chord /1 { F#3 D3 }  chord /1 { F#3 D3 } }
+  }
+  m59 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { B4/4 }
+    v2s2 { r/1  chord /1 { F#3 D3 }  chord /1 { F#3 D3 }  chord /1 { F#3 D3 } }
+  }
+  m60 {
+    attributes ["div=4"];
+    v1s1 { B4/4 }
+    v2s2 { r/1  chord /1 { F#3 D3 }  chord /1 { F#3 D3 }  chord /1 { F#3 D3 } }
+  }
+  m61 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { B4/1  D5/1  G#5/1  E5/1 }
+    v2s2 { r/1  chord /1 { G#3 D3 }  chord /1 { G#3 D3 }  chord /1 { G#3 D3 } }
+  }
+  m62 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=diminuendo"; at 0 value="dyn=mf"; at 4 value="wedge=stop"];
+    v1s1 { A5/4 {tie-start=1} }
+    v2s2 { r/1  chord /1 { A3 E3 }  chord /1 { A3 E3 }  chord /1 { A3 E3 } }
+  }
+  m63 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { A5/4 {tie-stop=1} }
+    v2s2 { chord /4 { A3 E3 } }
+  }
+  m64 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { A4 {slur-start=1} C#4 }  C#5/1  chord /1 { E5 A4 }  C#5/1 }
+    v2s2 { chord /4 { E3 C#3 A2 } }
+  }
+  m65 {
+    attributes ["div=4"];
+    v1s1 { chord /4 { B4 {slur-stop=1} B3 } }
+    v2s2 { B2/1  E3/1  G#3/1  E3/1 }
+  }
+  m66 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { B4 {slur-start=1} D4 }  D5/1  chord /1 { F#5 D5 }  chord /1 { C#6 G#5 } }
+    v2s2 { chord /4 { F#3 D3 B2 } }
+  }
+  m67 {
+    attributes ["div=4"];
+    v1s1 { chord /4 { B5 {slur-stop=1} E5 } }
+    v2s2 { B2/1  E3/1  chord /1 { D3 G#2 }  chord /1 { E3 B2 } }
+  }
+  m68 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { A5 {slur-start=1} E5 }  C#5/1  chord /1 { E5 A4 }  C#5/1 }
+    v2s2 { chord /4 { E3 C#3 A2 } }
+  }
+  m69 {
+    attributes ["div=4"];
+    v1s1 { chord /2 { F#5 B4 }  chord /2 { D5 {slur-stop=1} B4 } }
+    v2s2 { B2/1  D3/1  F#3/1  D3/1 }
+  }
+  m70 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { D5 {slur-start=1} B4 }  chord /1 { F#5 D5 }  chord /1 { C#6 A5 }  chord /1 { F#6 B5 } }
+    v2s2 { chord /2 { B3 D3 B2 }  chord /2 { F#3 D3 } }
+  }
+  m71 {
+    attributes ["div=4"];
+    directions [at 2 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { chord /2 { E6 {slur-stop=1} B5 G#5 }  chord /1/2 { E5 {slur-start=1} E4 }  chord /1/2 { D5 D4 }  chord /1/2 { B4 B3 }  chord /1/2 { E5 E4 } }
+    v2s2 { chord /1 { E3 G#2 }  B2/1  E3/1  B2/1 }
+  }
+  m72 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mf"];
+    v1s1 { chord /1/2 { A4 A3 }  chord /1/2 { C#5 C#4 }  chord /1/2 { E5 E4 }  r/1/2  chord /1 { A5 A4 }  chord /1 { C#5 C#4 } }
+    v2s2 { A2/1/2  E3/1/2  C#3/1/2  E3/1/2  A2/1/2  E3/1/2  C#3/1/2  E3/1/2 }
+  }
+  m73 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { D5 D4 }  chord /1/2 { B4 {slur-start=2} B3 }  chord /1/2 { A4 A3 }  chord /1 { G#4 G#3 }  chord /1 { E4 {slur-stop=1; slur-stop=2} E3 } }
+    v2s2 { A2/1/2  D3/1/2  B2/1/2  D3/1/2  A2/1/2  D3/1/2  B2/1/2  D3/1/2 }
+  }
+  m74 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { B4 {slur-start=1} B3 }  chord /1 { D5 D4 }  chord /1 { F#5 F#4 }  chord /1 { B4 B3 } }
+    v2s2 { G#2/1/2  E3/1/2  B2/1/2  E3/1/2  G#2/1/2  E3/1/2  B2/1/2  E3/1/2 }
+  }
+  m75 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { C#5 C#4 }  chord /1/2 { E5 E4 }  chord /1/2 { C#5 C#4 }  chord /2 { A4 {slur-stop=1} A3 } }
+    v2s2 { C#3/1/2  E3/1/2  A3/1/2  E3/1/2  C#3/1/2  E3/1/2  A3/1/2  E3/1/2 }
+  }
+  m76 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mf"];
+    v1s1 { chord /1/2 { A4 {slur-start=1} A3 }  chord /1/2 { C#5 C#4 }  chord /1 { E5 E4 }  chord /1 { A5 A4 }  chord /1 { C#5 C#4 } }
+    v2s2 { A2/1/2  E3/1/2  C#3/1/2  E3/1/2  A2/1/2  E3/1/2  C#3/1/2  E3/1/2 }
+  }
+  m77 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { D5 D4 }  chord /1/2 { B4 B3 }  chord /1/2 { A4 A3 }  chord /1 { G#4 G#3 }  chord /1 { E4 {slur-stop=1} E3 } }
+    v2s2 { A2/1/2  D3/1/2  B2/1/2  D3/1/2  A2/1/2  D3/1/2  B2/1/2  D3/1/2 }
+  }
+  m78 {
+    attributes ["div=4"];
+    v1s1 { chord /1 { B4 {slur-start=1} B3 }  chord /1 { D5 D4 }  chord /1 { F#5 F#4 }  chord /1 { G#5 G#4 G#3 } }
+    v2s2 { G#2/1/2  E3/1/2  B2/1/2  E3/1/2  G#2/1/2  E3/1/2  B2/1/2  E3/1/2 }
+  }
+  m79 {
+    attributes ["div=4"];
+    directions [at 2 value="dyn=mp"];
+    v1s1 { chord /4 { E5 {slur-stop=1} C#5 C#4 } }
+    v2s2 { C#3/1/2  E3/1/2  G#3/1/2  E3/1/2  chord /1 { E4 C#4 A3 E3 C#3 A2 G#2 }  chord /1 { C#4 A3 F#3 C#3 A2 F#2 } }
+  }
+  m80 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { F#5/2 {slur-start=1}  D5/1  B4/1 }
+    v2s2 { chord /4 { F#3 D3 A2 B1 } }
+  }
+  m81 {
+    attributes ["div=4"];
+    v1s1 { C#5/1  D5/1  E5/2 }
+    v2s2 { r/2  chord /2 { E3 {tie-start=1} C#3 {tie-start=2} A2 {tie-start=3} G#2 {tie-start=4} } }
+  }
+  m82 {
+    attributes ["div=4"];
+    v1s1 { C#5/1  A4/2 {slur-stop=1}  r/1 }
+    v2s2 { chord /4 { E3 {tie-stop=1} C#3 {tie-stop=2} A2 {tie-stop=3} G#2 {tie-stop=4} } }
+  }
+  m83 {
+    attributes ["div=4"];
+    v1s1 { B4/1  G#4/1/2  A4/1/2  r/2 }
+    v2s2 { r/4 }
+  }
+  m84 {
+    attributes ["div=4"];
+    v1s1 { C#5/1  A#4/1/2  B4/1/2  r/2 }
+    v2s2 { r/4 }
+  }
+  m85 {
+    attributes ["div=4"];
+    v1s1 { chord /2 { D5 G#4 E4 }  B4/1/2 {slur-start=1}  G#4/1/2  B4/1/2  D5/1/2 {slur-stop=1} }
+    v2s2 { E3/4 }
+  }
+  m86 {
+    attributes ["div=4"];
+    v1s1 { C#5/1/2 {slur-start=1}  E5/1/2  A5/1/2  E5/1/2 {slur-stop=1}  A5/1/2 {slur-start=1}  E5/1/2  D5/1/2  B4/1/2 {slur-stop=1} }
+    v2s2 { A2/1/2  C#3/1/2  E3/1/2  A3/1/2  C#3/1/2  E3/1/2  D3/1/2  B2/1/2 }
+  }
+  m87 {
+    attributes ["div=4"];
+    v1s1 { A4/4 }
+    v2s2 { chord /4 { E3 C#3 A2 } }
+  }
+  m88 {
+    attributes ["div=4"];
+    directions [at 1/2 value="dyn=mp"];
+    v1s1 { r/1/2  A4/1/2 {slur-start=1}  B4/1/2  G#4/1/2  A4/2 {slur-stop=1} }
+    v2s2 { r/4 }
+  }
+  m89 {
+    attributes ["div=4"];
+    v1s1 { r/1  D5/1/2 {slur-start=1}  F#5/1/2  E5/2 {slur-stop=1} }
+    v2s2 { r/4 }
+  }
+  m90 {
+    attributes ["div=4"];
+    v1s1 { r/1  F#5/1/2 {slur-start=1}  D5/1/2  B4/1 {slur-stop=1}  B4/1/2 {slur-start=1}  C#5/1/2 }
+    v2s2 { r/4 }
+  }
+  m91 {
+    attributes ["div=4"];
+    v1s1 { D5/1 {slur-stop=1}  G#4/1  A4/2 }
+    v2s2 { r/4 }
+  }
+  m92 {
+    attributes ["div=4"];
+    v1s1 { E5/1 {slur-start=1}  E5/1/2  F#5/1/2  E5/1  C#5/1 }
+    v2s2 { chord /4 { E3 C#3 A2 } }
+  }
+  m93 {
+    attributes ["div=4"];
+    v1s1 { D5/1  B4/1  C#5/2 {slur-stop=1} }
+    v2s2 { chord /4 { A3 F#3 D3 } }
+  }
+  m94 {
+    attributes ["div=4"];
+    v1s1 { E5/2 {slur-start=1}  E5/1  B4/1 }
+    v2s2 { chord /4 { A3 {tie-start=1} E3 {tie-start=2} A2 {tie-start=3} } }
+  }
+  m95 {
+    attributes ["div=4"];
+    v1s1 { C#5/1  E5/1  chord /2 { A4 {slur-stop=1} E4 } }
+    v2s2 { chord /4 { A3 {tie-stop=1} E3 {tie-stop=2} A2 {tie-stop=3} } }
+  }
+  m96 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { G#4/1/2 {slur-start=1}  B4/1/2  D5/1/2  E#5/1/2 {slur-stop=1}  G#4/1/2 {slur-start=1}  B4/1/2  D5/1/2  E#5/1/2 {slur-stop=1} }
+    v2s2 { r/4 }
+  }
+  m97 {
+    attributes ["div=4"];
+    directions [at 0 value="wedge=crescendo"; at 4 value="wedge=stop"];
+    v1s1 { G#4/1/2 {slur-start=1}  B4/1/2  C#5/1/2  D5/1/2 {slur-stop=1}  G#4/1/2 {slur-start=1}  B4/1/2  C#5/1/2  D5/1/2 {slur-stop=1} }
+    v2s2 { r/4 }
+  }
+  m98 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mf"];
+    v1s1 { E5/1 {slur-start=1}  E5/1/2  F#5/1/2  E5/1  C#5/1 {slur-stop=1} }
+    v2s2 { chord /1/2 { C#4 A2 }  E3/1/2  C#3/1/2  E3/1/2  A2/1/2  E3/1/2  C#3/1/2  E3/1/2 }
+  }
+  m99 {
+    attributes ["div=4"];
+    v1s1 { D5/1 {slur-start=1}  B4/1  E5/2 {slur-stop=1} }
+    v2s2 { D3/1/2  E3/1/2  B2/1/2  E3/1/2  D3/1/2  E3/1/2  B2/1/2  E3/1/2 }
+  }
+  m100 {
+    attributes ["div=4"];
+    v1s1 { E5/1 {slur-start=1}  E5/1/2  F#5/1/2  E5/1  C#5/1 {slur-stop=1} }
+    v2s2 { A2/1/2  E3/1/2  C#3/1/2  E3/1/2  A2/1/2  E3/1/2  C#3/1/2  E3/1/2 }
+  }
+  m101 {
+    attributes ["div=4"];
+    v1s1 { D5/1 {slur-start=1}  B4/1  A4/1/2  C#5/1/2  E5/1/2  G#5/1/2 }
+    v2s2 { D3/1/2  E3/1/2  B2/1/2  E3/1/2  A2/2 }
+  }
+  m102 {
+    attributes ["div=4"];
+    directions [at 0 value="dyn=mp"];
+    v1s1 { chord /4 { A5 {slur-stop=1} E5 A4 E4 } }
+    v2s2 { chord /4 { A3 E3 C#3 A2 } }
+  }
+}
+}

@@ -73,9 +73,13 @@ python concise_musicxml_gui.py
 
 On Windows, you can launch the interface by double-clicking `launch_gui.bat`.
 The GUI accepts multiple files, lets you choose the output directory, and has
-three output modes: **cmusic**, **MIDI**, or **Both**. Both outputs are rendered
-from the same imported `SemanticScore`; MIDI generation never reparses cmusic.
+output modes for **cmusic**, **Neutral MIDI**, **Expressive MIDI**, or
+**cmusic + Neutral MIDI**. Every MIDI mode consumes the imported
+`SemanticScore` directly and never parses cmusic.
 It remains usable through the file picker if `tkinterdnd2` is unavailable.
+
+Expressive MIDI requires `OPENAI_API_KEY` in the environment and an explicit
+model name in the GUI. Set `OPENAI_MODEL` to prefill that field.
 
 ## Neutral MIDI
 
@@ -139,6 +143,66 @@ Initial neutral policies are deliberately conservative:
   when concrete note content would need reconstruction.
 - Pedal and octave-shift directions fail until dedicated realization policies
   exist. Dynamics and wedges do not alter the neutral velocity.
+
+## LLM-planned expressive MIDI
+
+The expressive path preserves the authoritative boundary:
+
+```text
+MusicXML -> SemanticScore -> LLM -> PerformancePlan
+                     \------------------/ -> expressive realization -> MIDI
+```
+
+The LLM reads `render_cmusic_v2(score)` by default. Version 2 is the compact
+semantic view with explicit blocks and distinct delimiters; v1 remains
+available as a fallback. The LLM
+returns only a validated interpretation plan containing measure-scoped tempo,
+velocity offset, note-length scale, and character. The renderer applies that
+plan to the original `SemanticScore`; it never parses cmusic or reconstructs
+notes from the model input.
+
+`serialize_semantic_score_diagnostic()` retains the complete recursive
+dataclass serialization for debugging and comparisons, but it is not the
+default LLM input.
+
+```console
+set OPENAI_API_KEY=...
+python expressive_midi.py score.musicxml -o expressive.mid --model MODEL_ID
+```
+
+The plan can change performed tempo, velocity, and note length. It cannot add,
+remove, repitch, or renumber score events. Provenance is audited again before
+the deterministic MIDI encoder runs.
+
+## Experimental concise-music-v2
+
+v2 is rendered directly from `SemanticScore` and coexists with stable v1:
+
+```console
+python concise_music_v2.py score.musicxml -o score.cmusic2
+```
+
+Example:
+
+```text
+v1s1 { chord /1 { E4 {slur-stop=1; slur-stop=2} E3 } }
+```
+
+Whitespace separates events and chord members; semicolons separate semantic
+properties. `/` introduces duration, while braces delimit voice/chord scopes
+or a locally expected property block. Pitch and duration remain compact, but
+semantic relations keep readable names. The parser is a tokenizer plus
+recursive descent and canonical rendering satisfies exact
+`parse_v2(render_cmusic_v2(score)).render()` round-trip.
+
+For Western Sunrise, the current measurements are:
+
+- MusicXML: 540,849 bytes
+- cmusic v1: 15,545 bytes
+- cmusic v2: 34,656 bytes (6.41% of MusicXML; 2.23× v1)
+
+v1 remains unchanged for compatibility. v2 prioritizes unambiguous grammar and
+readable semantic names over minimum byte count.
 
 ## Concise format
 

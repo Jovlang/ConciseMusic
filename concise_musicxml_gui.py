@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import threading
 import tkinter as tk
+import os
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from concise_musicxml import import_musicxml, load_xml, render_cmusic
+from expressive_midi import render_expressive_midi
 from neutral_midi import render_midi
 
 try:
@@ -25,7 +27,7 @@ def plan_outputs(
     sources: list[Path], output_dir: Path, output_format: str = "cmusic"
 ) -> list[tuple[Path, Path, str]]:
     """Choose distinct output names, even when source basenames collide."""
-    if output_format not in {"cmusic", "midi", "both"}:
+    if output_format not in {"cmusic", "midi", "expressive", "both"}:
         raise ValueError(f"unknown output format: {output_format}")
     formats = ("cmusic", "midi") if output_format == "both" else (output_format,)
     used: set[str] = set()
@@ -53,6 +55,7 @@ class ConverterApp:
         self.files: list[Path] = []
         self.output_dir = tk.StringVar(value=str(Path.home() / "Documents"))
         self.output_format = tk.StringVar(value="cmusic")
+        self.llm_model = tk.StringVar(value=os.environ.get("OPENAI_MODEL", ""))
         self.status = tk.StringVar(value="Add MusicXML files to begin.")
         self._build_ui()
 
@@ -105,10 +108,24 @@ class ConverterApp:
         formats = ttk.Frame(output)
         formats.grid(row=1, column=0, columnspan=2, sticky="w", pady=(10, 0))
         ttk.Label(formats, text="Create:").pack(side="left", padx=(0, 8))
-        for label, value in (("cmusic", "cmusic"), ("MIDI", "midi"), ("Both", "both")):
+        for label, value in (
+            ("cmusic", "cmusic"),
+            ("Neutral MIDI", "midi"),
+            ("Expressive MIDI", "expressive"),
+            ("cmusic + Neutral MIDI", "both"),
+        ):
             ttk.Radiobutton(
                 formats, text=label, value=value, variable=self.output_format
             ).pack(side="left", padx=(0, 10))
+        ttk.Label(output, text="LLM model (Expressive MIDI):").grid(
+            row=2, column=0, sticky="w", pady=(10, 2)
+        )
+        ttk.Entry(output, textvariable=self.llm_model).grid(
+            row=3, column=0, columnspan=2, sticky="ew"
+        )
+        ttk.Label(output, text="Uses OPENAI_API_KEY from the environment.").grid(
+            row=4, column=0, columnspan=2, sticky="w", pady=(3, 0)
+        )
 
         bottom = ttk.Frame(outer)
         bottom.grid(row=5, column=0, sticky="ew", pady=(14, 0))
@@ -174,6 +191,16 @@ class ConverterApp:
         if not output_dir.is_dir():
             messagebox.showwarning("Invalid output directory", "Choose an existing output directory.")
             return
+        if self.output_format.get() == "expressive":
+            if not self.llm_model.get().strip():
+                messagebox.showwarning("Missing model", "Enter an LLM model for expressive MIDI.")
+                return
+            if not os.environ.get("OPENAI_API_KEY"):
+                messagebox.showwarning(
+                    "Missing API key",
+                    "Set OPENAI_API_KEY before generating expressive MIDI.",
+                )
+                return
 
         jobs = plan_outputs(self.files, output_dir, self.output_format.get())
         outputs = [destination for _, destination, _ in jobs]
@@ -186,9 +213,13 @@ class ConverterApp:
 
         self.convert_button.configure(state="disabled")
         self.status.set("Converting…")
-        threading.Thread(target=self._convert_all, args=(jobs,), daemon=True).start()
+        threading.Thread(
+            target=self._convert_all,
+            args=(jobs, self.llm_model.get().strip()),
+            daemon=True,
+        ).start()
 
-    def _convert_all(self, jobs: list[tuple[Path, Path, str]]) -> None:
+    def _convert_all(self, jobs: list[tuple[Path, Path, str]], model: str = "") -> None:
         succeeded: list[Path] = []
         failures: list[str] = []
         imported = {}
@@ -206,8 +237,10 @@ class ConverterApp:
                 score = imported[source]
                 if kind == "cmusic":
                     destination.write_text(render_cmusic(score), encoding="utf-8")
-                else:
+                elif kind == "midi":
                     destination.write_bytes(render_midi(score).data)
+                else:
+                    destination.write_bytes(render_expressive_midi(score, model=model).data)
                 succeeded.append(destination)
             except Exception as exc:  # Keep processing the remaining selected files.
                 failures.append(f"{source.name} ({kind}): {exc}")

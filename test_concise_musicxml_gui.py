@@ -13,6 +13,10 @@ class GuiOutputPlanningTests(unittest.TestCase):
         jobs = plan_outputs([Path("one.musicxml")], Path("out"), "midi")
         self.assertEqual(jobs, [(Path("one.musicxml"), Path("out/one.mid"), "midi")])
 
+    def test_expressive_mode_plans_direct_mid_output(self):
+        jobs = plan_outputs([Path("one.musicxml")], Path("out"), "expressive")
+        self.assertEqual(jobs, [(Path("one.musicxml"), Path("out/one.mid"), "expressive")])
+
     def test_both_mode_plans_both_outputs_in_stable_order(self):
         jobs = plan_outputs([Path("one.musicxml")], Path("out"), "both")
         self.assertEqual(
