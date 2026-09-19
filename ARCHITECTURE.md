@@ -144,3 +144,15 @@ The encoder is a standard-library Standard MIDI File adapter, not a score
 model. Neutral policy is deterministic and non-expressive. The later
 `PerformancePlan` layer can replace or augment realization without changing
 the semantic score or forcing cmusic to become an authoritative database.
+
+`InstrumentDefinition` retains optional authored MusicXML `midi-channel`,
+`midi-program`, and `midi-unpitched` values. Neutral realization uses these
+values without name-based inference. Unpitched events require both an explicit
+instrument reference and an authored MIDI mapping, so engraving display
+position can never silently become percussion identity.
+
+Grace-note identity remains in `SemanticScore`; concrete grace timing exists
+only in neutral realization. Each realized grace note retains its source ID and
+uses the `grace_realization` disposition. The neutral adapter steals a bounded
+span from the following principal note, preserving the distinction between a
+sequential grace group and a grace chord.

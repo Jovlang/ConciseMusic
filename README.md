@@ -72,9 +72,10 @@ python concise_musicxml_gui.py
 ```
 
 On Windows, you can launch the interface by double-clicking `launch_gui.bat`.
-The GUI accepts multiple files, lets you choose the output directory, and
-writes one `.cmusic` file per source. It remains usable through the file picker
-if `tkinterdnd2` is unavailable.
+The GUI accepts multiple files, lets you choose the output directory, and has
+three output modes: **cmusic**, **MIDI**, or **Both**. Both outputs are rendered
+from the same imported `SemanticScore`; MIDI generation never reparses cmusic.
+It remains usable through the file picker if `tkinterdnd2` is unavailable.
 
 ## Neutral MIDI
 
@@ -106,24 +107,33 @@ Initial neutral policies are deliberately conservative:
 
 - Standard MIDI format 1, 480 ticks per quarter; one conductor track and one
   note track per semantic part.
-- Channels are assigned deterministically per pitched part/staff/voice/
-  instrument lane, excluding percussion channel 10. More than 15 lanes fails.
+- Authored `midi-channel`, `midi-program`, and `midi-unpitched` values are kept
+  on semantic instrument definitions. Values are converted from MusicXML's
+  1-based numbering only during realization.
+- Authored channels are honored. Otherwise channels are assigned
+  deterministically per part/staff/voice/instrument lane; unpitched instruments
+  default to percussion channel 10 and pitched lanes avoid that channel.
 - Written pitches are converted to sounding MIDI pitch using available
   chromatic/octave transposition. Microtones and ambiguous diatonic-only or
   doubled transpositions fail explicitly.
-- Velocity is always 64. No humanization, CC curves, program changes,
-  keyswitches, or sample-library behavior are generated.
+- Velocity is always 64. Authored MIDI programs produce deterministic program
+  changes; programs are never inferred from names. No humanization, CC curves,
+  keyswitches, or sample-library behavior is generated.
 - Authored tempo and conventional time signatures are encoded; defaults are
   120 quarter-note BPM and 4/4. Unsupported metronome units and nonstandard
   meters fail explicitly.
 - Matching ties merge score events into one continuous performed note while
   retaining every source identity.
 - Ornaments remain one neutral performed note and are marked as unexpanded in
-  the disposition. Grace notes currently fail explicitly rather than receiving
-  guessed timing.
-- Unpitched percussion fails until semantic MIDI note mappings are available.
-- Instrument identity affects lane assignment, but no MIDI program is inferred
-  from names.
+  the disposition. Grace groups take time from the beginning of the following
+  principal note: authored `steal-time-following` percentages are honored;
+  otherwise the group receives the smaller of an eighth-note or one quarter of
+  the principal duration. Sequential grace notes divide that span evenly and
+  grace-chord members share a slot. `make-time` and `steal-time-previous`
+  currently fail explicitly.
+- Unpitched percussion uses the referenced instrument's authored
+  `midi-unpitched` mapping, never its display position. Missing references or
+  mappings fail explicitly.
 - Playback follows written linear measure order. Repeat barlines and navigation
   directives are not expanded. Measure-repeat/multirest/slash shorthand fails
   when concrete note content would need reconstruction.

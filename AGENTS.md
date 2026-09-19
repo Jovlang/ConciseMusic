@@ -99,6 +99,12 @@ Keep these distinctions explicit during implementation and review:
   reconstruct notes already present in the score.
 - MIDI controller and keyswitch conventions belong to renderer profiles and
   sample-library adapters, not to the score model or cmusic grammar.
+- Keep authored MusicXML MIDI channel/program/unpitched values on the existing
+  semantic instrument definition. Convert their 1-based numbering only in the
+  realization adapter; never infer these mappings from names or staff position.
+- Grace-note timing belongs to realization, not `SemanticNoteEvent` duration.
+  Preserve every grace source identity and keep grace chords simultaneous while
+  sequential grace notes receive distinct performed slots.
 
 ## Verification
 
@@ -106,7 +112,7 @@ Run before committing:
 
 ```console
 python -m unittest -v
-python -m py_compile concise_musicxml.py concise_music_parser.py concise_musicxml_gui.py neutral_midi.py semantic_audit.py test_concise_musicxml.py test_concise_music_parser.py test_neutral_midi.py
+python -m py_compile concise_musicxml.py concise_music_parser.py concise_musicxml_gui.py neutral_midi.py semantic_audit.py test_concise_musicxml.py test_concise_music_parser.py test_concise_musicxml_gui.py test_neutral_midi.py
 ```
 
 For MusicXML notation changes, include tests for multiple events on one note,

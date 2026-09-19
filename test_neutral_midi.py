@@ -118,6 +118,72 @@ class NeutralMidiTests(unittest.TestCase):
         </measure></part>""")
         self.assertEqual(realize_neutral(semantic).notes[0].pitch, 58)
 
+    def test_authored_midi_program_and_channel_are_realized(self):
+        semantic = score(
+            """<part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes>
+              <note><instrument id="P1-I1"/><pitch><step>C</step><octave>4</octave></pitch>
+                <duration>1</duration></note></measure></part>""",
+            '<score-part id="P1"><part-name>Clarinet</part-name>'
+            '<score-instrument id="P1-I1"><instrument-name>Clarinet</instrument-name></score-instrument>'
+            '<midi-instrument id="P1-I1"><midi-channel>3</midi-channel>'
+            '<midi-program>72</midi-program></midi-instrument></score-part>',
+        )
+        definition = semantic.parts[0].instruments[0]
+        self.assertEqual((definition.midi_channel, definition.midi_program), (3, 72))
+
+        result = render_midi(semantic)
+        self.assertEqual((result.realization.notes[0].channel, result.realization.notes[0].pitch), (2, 60))
+        self.assertEqual(result.realization.programs[0].program, 71)
+        self.assertIn(bytes((0xC2, 71)), result.data)
+        self.assertIn(bytes((0x92, 60, 64)), result.data)
+
+    def test_unpitched_uses_authored_identity_mapping_not_display_position(self):
+        semantic = score(
+            """<part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes>
+              <note><instrument id="P1-Snare"/><unpitched><display-step>D</display-step>
+                <display-octave>5</display-octave></unpitched><duration>1</duration></note>
+              <note><instrument id="P1-Snare"/><unpitched><display-step>F</display-step>
+                <display-octave>4</display-octave></unpitched><duration>1</duration></note>
+            </measure></part>""",
+            '<score-part id="P1"><part-name>Drums</part-name>'
+            '<score-instrument id="P1-Snare"><instrument-name>Snare</instrument-name></score-instrument>'
+            '<midi-instrument id="P1-Snare"><midi-channel>10</midi-channel>'
+            '<midi-unpitched>39</midi-unpitched></midi-instrument></score-part>',
+        )
+        realized = realize_neutral(semantic)
+        self.assertEqual([(note.channel, note.pitch) for note in realized.notes], [(9, 38), (9, 38)])
+        self.assertTrue(all(note.source_event_ids for note in realized.notes))
+
+    def test_unpitched_without_authored_mapping_fails_explicitly(self):
+        semantic = score(
+            """<part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes>
+              <note><instrument id="P1-I1"/><unpitched><display-step>D</display-step>
+                <display-octave>5</display-octave></unpitched><duration>1</duration></note>
+            </measure></part>""",
+            '<score-part id="P1"><part-name>Drums</part-name>'
+            '<score-instrument id="P1-I1"><instrument-name>Unknown drum</instrument-name>'
+            '</score-instrument></score-part>',
+        )
+        with self.assertRaisesRegex(RealizationError, "no midi-unpitched mapping"):
+            realize_neutral(semantic)
+
+    def test_pitched_instrument_switch_emits_program_changes(self):
+        semantic = score(
+            """<part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes>
+              <note><instrument id="P1-I1"/><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note>
+              <note><instrument id="P1-I2"/><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration></note>
+            </measure></part>""",
+            '<score-part id="P1"><part-name>Player</part-name>'
+            '<score-instrument id="P1-I1"><instrument-name>One</instrument-name></score-instrument>'
+            '<score-instrument id="P1-I2"><instrument-name>Two</instrument-name></score-instrument>'
+            '<midi-instrument id="P1-I1"><midi-program>1</midi-program></midi-instrument>'
+            '<midi-instrument id="P1-I2"><midi-program>41</midi-program></midi-instrument>'
+            '</score-part>',
+        )
+        realized = realize_neutral(semantic)
+        self.assertEqual([(item.onset, item.program) for item in realized.programs], [(0, 0), (1, 40)])
+        self.assertNotEqual(realized.notes[0].channel, realized.notes[1].channel)
+
     def test_ornament_uses_documented_neutral_direct_policy(self):
         semantic = score("""<part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes>
           <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
@@ -128,13 +194,47 @@ class NeutralMidiTests(unittest.TestCase):
         self.assertEqual(disposition.kind, "directly_realized")
         self.assertIn("without neutral expansion", disposition.detail)
 
-    def test_grace_and_unpitched_notes_fail_explicitly(self):
+    def test_grace_sequence_uses_deterministic_following_note_timing(self):
         grace = score("""<part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes>
           <note><grace/><pitch><step>D</step><octave>4</octave></pitch></note>
+          <note><grace/><pitch><step>E</step><octave>4</octave></pitch></note>
           <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note>
         </measure></part>""")
-        with self.assertRaisesRegex(RealizationError, "grace realization"):
-            realize_neutral(grace)
+        realized = realize_neutral(grace)
+        self.assertEqual(
+            [(note.pitch, note.onset, note.duration) for note in realized.notes],
+            [(62, 0, Fraction(1, 16)), (64, Fraction(1, 16), Fraction(1, 16)),
+             (60, Fraction(1, 8), Fraction(7, 8))],
+        )
+        self.assertEqual(realized.dispositions[SourceEventId("P1", 1)].kind, "grace_realization")
+        self.assertEqual(realized.dispositions[SourceEventId("P1", 2)].kind, "grace_realization")
+
+    def test_grace_chord_shares_one_performed_slot(self):
+        semantic = score("""<part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes>
+          <note><grace steal-time-following="20"/><pitch><step>C</step><octave>4</octave></pitch></note>
+          <note><chord/><grace steal-time-following="20"/><pitch><step>E</step><octave>4</octave></pitch></note>
+          <note><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration></note>
+        </measure></part>""")
+        realized = realize_neutral(semantic)
+        self.assertEqual(
+            [(note.pitch, note.onset, note.duration) for note in realized.notes],
+            [(60, 0, Fraction(2, 5)), (64, 0, Fraction(2, 5)),
+             (67, Fraction(2, 5), Fraction(8, 5))],
+        )
+
+    def test_unsupported_grace_timing_semantics_fail_explicitly(self):
+        for attribute, message in (
+            ('make-time="1"', "make-time"),
+            ('steal-time-previous="20"', "steal-time-previous"),
+        ):
+            semantic = score(f"""<part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes>
+              <note><grace {attribute}/><pitch><step>D</step><octave>4</octave></pitch></note>
+              <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note>
+            </measure></part>""")
+            with self.assertRaisesRegex(RealizationError, message):
+                realize_neutral(semantic)
+
+    def test_unpitched_without_identity_fails_explicitly(self):
 
         unpitched = score("""<part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes>
           <note><unpitched><display-step>D</display-step><display-octave>5</display-octave></unpitched>

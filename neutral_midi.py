@@ -12,8 +12,10 @@ from fractions import Fraction
 from pathlib import Path
 
 from concise_musicxml import (
+    InstrumentDefinition,
     Rest,
     SemanticNoteEvent,
+    SemanticPart,
     SemanticScore,
     UnknownNote,
     Unpitched,
@@ -70,12 +72,22 @@ class TimeSignatureEvent:
     denominator: int
 
 
+@dataclass(frozen=True)
+class ProgramEvent:
+    onset: Fraction
+    part_index: int
+    channel: int
+    program: int
+    instrument_id: str
+
+
 @dataclass
 class NeutralRealization:
     notes: list[PerformedNote] = field(default_factory=list)
     dispositions: dict[SourceEventId, EventDisposition] = field(default_factory=dict)
     tempos: list[TempoEvent] = field(default_factory=list)
     time_signatures: list[TimeSignatureEvent] = field(default_factory=list)
+    programs: list[ProgramEvent] = field(default_factory=list)
     part_names: list[str] = field(default_factory=list)
 
 
@@ -235,23 +247,154 @@ def _event_key(event: SemanticNoteEvent, pitch: int, number: str) -> tuple:
     )
 
 
+def _instrument_definition(
+    part: SemanticPart, event: SemanticNoteEvent
+) -> InstrumentDefinition | None:
+    by_id = {definition.xml_id: definition for definition in part.instruments}
+    if event.instrument_id:
+        definition = by_id.get(event.instrument_id)
+        if definition is None:
+            raise RealizationError(
+                f"undefined instrument reference {event.instrument_id!r} in part {part.identifier}"
+            )
+        return definition
+    return part.instruments[0] if len(part.instruments) == 1 else None
+
+
+def _lane_key(part: SemanticPart, event: SemanticNoteEvent) -> tuple[str, str, str, str]:
+    definition = _instrument_definition(part, event)
+    instrument_id = definition.xml_id if definition is not None else event.instrument_id
+    source = event.provenance
+    return (part.identifier, source.staff, source.voice, instrument_id)
+
+
 def _assign_channels(score: SemanticScore) -> dict[tuple[str, str, str, str], int]:
     keys: list[tuple[str, str, str, str]] = []
+    requested: dict[tuple[str, str, str, str], int | None] = {}
     seen = set()
     for part in score.parts:
         for measure in part.measures:
             for event in measure.events:
-                if not isinstance(event.content, WrittenPitch):
+                if not isinstance(event.content, (WrittenPitch, Unpitched)):
                     continue
-                provenance = event.provenance
-                key = (part.identifier, provenance.staff, provenance.voice, event.instrument_id)
+                definition = _instrument_definition(part, event)
+                if isinstance(event.content, Unpitched):
+                    if not event.instrument_id:
+                        raise RealizationError(
+                            f"unpitched instrument mapping requires a semantic instrument reference: "
+                            f"{SourceEventId(part.identifier, event.provenance.note_index)}"
+                        )
+                    if definition is None or definition.midi_unpitched is None:
+                        raise RealizationError(
+                            f"unpitched instrument has no midi-unpitched mapping: {event.instrument_id}"
+                        )
+                key = _lane_key(part, event)
                 if key not in seen:
                     seen.add(key)
                     keys.append(key)
-    channels = [channel for channel in range(16) if channel != 9]
-    if len(keys) > len(channels):
-        raise RealizationError("neutral MIDI supports at most 15 simultaneous pitched voice/instrument lanes")
-    return dict(zip(keys, channels))
+                    channel = definition.midi_channel if definition is not None else None
+                    if channel is not None and not 1 <= channel <= 16:
+                        raise RealizationError(f"MusicXML midi-channel is out of range: {channel}")
+                    requested[key] = channel - 1 if channel is not None else (
+                        9 if isinstance(event.content, Unpitched) else None
+                    )
+    assigned: dict[tuple[str, str, str, str], int] = {}
+    used = {channel for channel in requested.values() if channel is not None}
+    available = [channel for channel in range(16) if channel != 9 and channel not in used]
+    for key in keys:
+        channel = requested[key]
+        if channel is None:
+            if not available:
+                raise RealizationError("neutral MIDI has no free channel for a pitched voice/instrument lane")
+            channel = available.pop(0)
+        assigned[key] = channel
+    return assigned
+
+
+def _grace_timing(measure) -> dict[int, tuple[Fraction, Fraction, str]]:
+    """Return performed onset/duration overrides keyed by source note index."""
+    overrides: dict[int, tuple[Fraction, Fraction, str]] = {}
+    lanes: dict[tuple[str, str], list[SemanticNoteEvent]] = {}
+    for event in measure.events:
+        source = event.provenance
+        lanes.setdefault((source.staff, source.voice), []).append(event)
+
+    for events in lanes.values():
+        index = 0
+        while index < len(events):
+            if events[index].grace is None:
+                index += 1
+                continue
+            start = index
+            while index < len(events) and events[index].grace is not None:
+                index += 1
+            grace_events = events[start:index]
+            if index >= len(events):
+                source = grace_events[0].provenance
+                raise RealizationError(
+                    f"grace group has no following principal note: "
+                    f"{SourceEventId(source.part_id, source.note_index)}"
+                )
+            principal = events[index]
+            if isinstance(principal.content, Rest) or principal.duration <= 0:
+                raise RealizationError("grace group must precede a positive-duration sounding note")
+            if any(event.grace.make_time for event in grace_events if event.grace):
+                raise RealizationError("grace make-time realization is not yet implemented")
+            if any(event.grace.steal_time_previous for event in grace_events if event.grace):
+                raise RealizationError("grace steal-time-previous realization is not yet implemented")
+            percentages = {
+                Fraction(event.grace.steal_time_following)
+                for event in grace_events
+                if event.grace and event.grace.steal_time_following
+            }
+            if len(percentages) > 1:
+                raise RealizationError("grace group has conflicting steal-time-following values")
+            if percentages:
+                percentage = next(iter(percentages))
+                if not 0 < percentage < 100:
+                    raise RealizationError("grace steal-time-following must be between 0 and 100")
+                allocation = principal.duration * percentage / 100
+                detail = f"stole {percentage}% from following note"
+            else:
+                allocation = min(Fraction(1, 8), principal.duration / 4)
+                detail = "neutral default stole time from following note"
+
+            slot = -1
+            slots: list[int] = []
+            for event in grace_events:
+                if not event.chord:
+                    slot += 1
+                elif slot < 0:
+                    raise RealizationError("grace chord member has no preceding grace chord head")
+                slots.append(slot)
+            slot_count = slot + 1
+            if slot_count <= 0 or allocation <= 0 or allocation >= principal.duration:
+                raise RealizationError("grace allocation leaves no positive principal-note duration")
+            slot_duration = allocation / slot_count
+            for event, slot_index in zip(grace_events, slots):
+                overrides[event.provenance.note_index] = (
+                    principal.onset + slot_duration * slot_index,
+                    slot_duration,
+                    detail,
+                )
+
+            principal_members = [principal]
+            member_index = index + 1
+            while (
+                member_index < len(events)
+                and events[member_index].grace is None
+                and events[member_index].chord
+                and events[member_index].onset == principal.onset
+            ):
+                principal_members.append(events[member_index])
+                member_index += 1
+            for member in principal_members:
+                overrides[member.provenance.note_index] = (
+                    member.onset + allocation,
+                    member.duration - allocation,
+                    "time donated to preceding grace group",
+                )
+    return overrides
 
 
 def realize_neutral(score: SemanticScore) -> NeutralRealization:
@@ -261,6 +404,8 @@ def realize_neutral(score: SemanticScore) -> NeutralRealization:
     active_ties: dict[tuple, PerformedNote] = {}
     tempo_candidates: dict[Fraction, Fraction] = {}
     time_candidates: dict[Fraction, tuple[int, int]] = {}
+    program_state: dict[tuple[int, int], int] = {}
+    program_at_position: dict[tuple[int, int, Fraction], int] = {}
 
     for part_index, part in enumerate(score.parts):
         absolute_measure_start = Fraction(0)
@@ -268,6 +413,7 @@ def realize_neutral(score: SemanticScore) -> NeutralRealization:
         recorded_time: tuple[int, int] | None = None
         transpositions: dict[str, int] = {"*": 0}
         for measure in part.measures:
+            grace_timing = _grace_timing(measure)
             for token in measure.attributes:
                 if token.startswith(("measure-repeat", "beat-repeat", "multirest")) or re.match(
                     r"^slash\d*=", token
@@ -299,15 +445,23 @@ def realize_neutral(score: SemanticScore) -> NeutralRealization:
                 if isinstance(event.content, Rest):
                     result.dispositions[source_id] = EventDisposition("intentionally_silent", detail="rest")
                     continue
-                if event.grace is not None:
-                    raise RealizationError(f"grace realization policy is not yet implemented: {source_id}")
-                if isinstance(event.content, Unpitched):
-                    raise RealizationError(f"unpitched instrument mapping is not yet available: {source_id}")
                 if isinstance(event.content, UnknownNote):
                     raise RealizationError(f"unknown note content cannot be realized: {source_id}")
                 staff = event.provenance.staff
-                transpose = transpositions.get(staff, transpositions.get("*", 0))
-                pitch = _midi_pitch(event.content, transpose)
+                definition = _instrument_definition(part, event)
+                channel_key = _lane_key(part, event)
+                channel = channels[channel_key]
+                if isinstance(event.content, Unpitched):
+                    if definition is None or definition.midi_unpitched is None:
+                        raise RealizationError(f"unpitched instrument mapping is unavailable: {source_id}")
+                    if not 1 <= definition.midi_unpitched <= 128:
+                        raise RealizationError(
+                            f"MusicXML midi-unpitched is out of range: {definition.midi_unpitched}"
+                        )
+                    pitch = definition.midi_unpitched - 1
+                else:
+                    transpose = transpositions.get(staff, transpositions.get("*", 0))
+                    pitch = _midi_pitch(event.content, transpose)
                 stops, starts = _tie_relations(event)
                 performed: PerformedNote | None = None
                 for number, _ in stops:
@@ -318,32 +472,59 @@ def realize_neutral(score: SemanticScore) -> NeutralRealization:
                     if performed is not None and performed is not tied:
                         raise RealizationError(f"one score event closes multiple unrelated ties: {source_id}")
                     performed = tied
-                onset = absolute_measure_start + event.onset
+                performed_onset, performed_duration, timing_detail = grace_timing.get(
+                    event.provenance.note_index, (event.onset, event.duration, "")
+                )
+                onset = absolute_measure_start + performed_onset
+                if definition is not None and definition.midi_program is not None:
+                    if not 1 <= definition.midi_program <= 128:
+                        raise RealizationError(
+                            f"MusicXML midi-program is out of range: {definition.midi_program}"
+                        )
+                    program = definition.midi_program - 1
+                    state_key = (part_index, channel)
+                    if program_state.get(state_key) != program:
+                        position_key = (part_index, channel, onset)
+                        previous_program = program_at_position.get(position_key)
+                        if previous_program is not None and previous_program != program:
+                            raise RealizationError(
+                                "conflicting MIDI programs share a channel at the same onset"
+                            )
+                        result.programs.append(
+                            ProgramEvent(onset, part_index, channel, program, definition.xml_id)
+                        )
+                        program_at_position[position_key] = program
+                        program_state[state_key] = program
                 if performed is not None:
-                    performed.duration = max(performed.onset + performed.duration, onset + event.duration) - performed.onset
+                    performed.duration = max(
+                        performed.onset + performed.duration, onset + performed_duration
+                    ) - performed.onset
                     performed.source_event_ids.append(source_id)
                     result.dispositions[source_id] = EventDisposition(
                         "merged_by_tie", (performed.identifier,), "continuous sounding note"
                     )
                 else:
-                    if event.duration <= 0:
+                    if performed_duration <= 0:
                         raise RealizationError(f"non-grace pitched note has no positive duration: {source_id}")
-                    channel_key = (part.identifier, staff, event.provenance.voice, event.instrument_id)
                     performed = PerformedNote(
                         identifier=len(result.notes) + 1,
                         source_event_ids=[source_id],
                         part_index=part_index,
-                        channel=channels[channel_key],
+                        channel=channel,
                         pitch=pitch,
                         onset=onset,
-                        duration=event.duration,
+                        duration=performed_duration,
                     )
                     result.notes.append(performed)
                     detail = "ornament retained without neutral expansion" if any(
                         marker.startswith("orn=") for marker in event.pre_grace_markers
                     ) else ""
+                    if timing_detail:
+                        detail = "; ".join(value for value in (timing_detail, detail) if value)
                     result.dispositions[source_id] = EventDisposition(
-                        "directly_realized", (performed.identifier,), detail
+                        "grace_realization" if event.grace is not None else "directly_realized",
+                        (performed.identifier,),
+                        detail,
                     )
                 for number, _ in starts:
                     key = _event_key(event, pitch, number)
@@ -428,6 +609,11 @@ def encode_midi(realization: NeutralRealization) -> bytes:
         events: list[tuple[int, int, bytes]] = [
             (0, 0, b"\xff\x03" + _vlq(len(encoded_name)) + encoded_name)
         ]
+        for program in realization.programs:
+            if program.part_index == part_index:
+                events.append(
+                    (_tick(program.onset), 1, bytes((0xC0 | program.channel, program.program)))
+                )
         for note in realization.notes:
             if note.part_index != part_index:
                 continue

@@ -235,6 +235,9 @@ class InstrumentDefinition:
     xml_id: str
     name: str = ""
     sound: str = ""
+    midi_channel: int | None = None
+    midi_program: int | None = None
+    midi_unpitched: int | None = None
 
 
 @dataclass
@@ -1119,6 +1122,11 @@ def instrument_catalog(
     available: list[ET.Element] = []
     if score_part is not None:
         available = [x for x in score_part if local(x.tag) == "score-instrument"]
+        midi_by_id = {
+            x.get("id", "").strip(): x
+            for x in score_part
+            if local(x.tag) == "midi-instrument"
+        }
         available_ids = {x.get("id", "").strip() for x in available}
         selected = set(referenced_set)
         if not referenced_set or has_unreferenced_pitched_note:
@@ -1126,11 +1134,20 @@ def instrument_catalog(
         for item in available:
             xml_id = item.get("id", "").strip()
             if xml_id in selected and xml_id not in seen:
+                midi = midi_by_id.get(xml_id)
+
+                def midi_int(name: str) -> int | None:
+                    value = text(midi, name) if midi is not None else ""
+                    return int(value) if value else None
+
                 definitions.append(
                     InstrumentDefinition(
                         xml_id=xml_id,
                         name=text(item, "instrument-name"),
                         sound=text(item, "instrument-sound"),
+                        midi_channel=midi_int("midi-channel"),
+                        midi_program=midi_int("midi-program"),
+                        midi_unpitched=midi_int("midi-unpitched"),
                     )
                 )
                 seen.add(xml_id)

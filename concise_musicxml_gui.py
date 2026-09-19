@@ -8,7 +8,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from concise_musicxml import convert, load_xml
+from concise_musicxml import import_musicxml, load_xml, render_cmusic
+from neutral_midi import render_midi
 
 try:
     from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -20,19 +21,26 @@ except ImportError:  # The GUI remains usable through the file picker.
 SUPPORTED_SUFFIXES = {".xml", ".musicxml", ".mxl"}
 
 
-def plan_outputs(sources: list[Path], output_dir: Path) -> list[tuple[Path, Path]]:
+def plan_outputs(
+    sources: list[Path], output_dir: Path, output_format: str = "cmusic"
+) -> list[tuple[Path, Path, str]]:
     """Choose distinct output names, even when source basenames collide."""
+    if output_format not in {"cmusic", "midi", "both"}:
+        raise ValueError(f"unknown output format: {output_format}")
+    formats = ("cmusic", "midi") if output_format == "both" else (output_format,)
     used: set[str] = set()
-    jobs: list[tuple[Path, Path]] = []
+    jobs: list[tuple[Path, Path, str]] = []
     for source in sources:
-        stem = source.stem
-        candidate = output_dir / f"{stem}.cmusic"
-        number = 2
-        while candidate.name.casefold() in used:
-            candidate = output_dir / f"{stem}_{number}.cmusic"
-            number += 1
-        used.add(candidate.name.casefold())
-        jobs.append((source, candidate))
+        for kind in formats:
+            suffix = ".cmusic" if kind == "cmusic" else ".mid"
+            stem = source.stem
+            candidate = output_dir / f"{stem}{suffix}"
+            number = 2
+            while candidate.name.casefold() in used:
+                candidate = output_dir / f"{stem}_{number}{suffix}"
+                number += 1
+            used.add(candidate.name.casefold())
+            jobs.append((source, candidate, kind))
     return jobs
 
 
@@ -44,6 +52,7 @@ class ConverterApp:
         self.root.minsize(580, 420)
         self.files: list[Path] = []
         self.output_dir = tk.StringVar(value=str(Path.home() / "Documents"))
+        self.output_format = tk.StringVar(value="cmusic")
         self.status = tk.StringVar(value="Add MusicXML files to begin.")
         self._build_ui()
 
@@ -53,7 +62,7 @@ class ConverterApp:
         outer.columnconfigure(0, weight=1)
         outer.rowconfigure(2, weight=1)
 
-        ttk.Label(outer, text="MusicXML → concise LLM format", font=("Segoe UI", 17, "bold")).grid(
+        ttk.Label(outer, text="MusicXML → cmusic / MIDI", font=("Segoe UI", 17, "bold")).grid(
             row=0, column=0, sticky="w", pady=(0, 4)
         )
         ttk.Label(
@@ -93,6 +102,13 @@ class ConverterApp:
         output.columnconfigure(0, weight=1)
         ttk.Entry(output, textvariable=self.output_dir).grid(row=0, column=0, sticky="ew", padx=(0, 8))
         ttk.Button(output, text="Choose…", command=self._browse_output).grid(row=0, column=1)
+        formats = ttk.Frame(output)
+        formats.grid(row=1, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Label(formats, text="Create:").pack(side="left", padx=(0, 8))
+        for label, value in (("cmusic", "cmusic"), ("MIDI", "midi"), ("Both", "both")):
+            ttk.Radiobutton(
+                formats, text=label, value=value, variable=self.output_format
+            ).pack(side="left", padx=(0, 10))
 
         bottom = ttk.Frame(outer)
         bottom.grid(row=5, column=0, sticky="ew", pady=(14, 0))
@@ -159,8 +175,8 @@ class ConverterApp:
             messagebox.showwarning("Invalid output directory", "Choose an existing output directory.")
             return
 
-        jobs = plan_outputs(self.files, output_dir)
-        outputs = [destination for _, destination in jobs]
+        jobs = plan_outputs(self.files, output_dir, self.output_format.get())
+        outputs = [destination for _, destination, _ in jobs]
         existing = [path for path in outputs if path.exists()]
         if existing and not messagebox.askyesno(
             "Replace existing files",
@@ -172,16 +188,29 @@ class ConverterApp:
         self.status.set("Converting…")
         threading.Thread(target=self._convert_all, args=(jobs,), daemon=True).start()
 
-    def _convert_all(self, jobs: list[tuple[Path, Path]]) -> None:
+    def _convert_all(self, jobs: list[tuple[Path, Path, str]]) -> None:
         succeeded: list[Path] = []
         failures: list[str] = []
-        for source, destination in jobs:
+        imported = {}
+        import_failures: dict[Path, Exception] = {}
+        for source, destination, kind in jobs:
             try:
-                result = convert(load_xml(source), source.name)
-                destination.write_text(result, encoding="utf-8")
+                if source in import_failures:
+                    raise import_failures[source]
+                if source not in imported:
+                    try:
+                        imported[source] = import_musicxml(load_xml(source), source.name)
+                    except Exception as exc:
+                        import_failures[source] = exc
+                        raise
+                score = imported[source]
+                if kind == "cmusic":
+                    destination.write_text(render_cmusic(score), encoding="utf-8")
+                else:
+                    destination.write_bytes(render_midi(score).data)
                 succeeded.append(destination)
             except Exception as exc:  # Keep processing the remaining selected files.
-                failures.append(f"{source.name}: {exc}")
+                failures.append(f"{source.name} ({kind}): {exc}")
         self.root.after(0, self._conversion_finished, succeeded, failures)
 
     def _conversion_finished(self, succeeded: list[Path], failures: list[str]) -> None:
