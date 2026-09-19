@@ -11,6 +11,8 @@ reason about a score while omitting bulky engraving and layout data.
   chords, ties, numbered slurs, lyrics, key and time signatures, clefs, tempo,
   dynamics, repeats, and endings.
 - Keeps ties and slurs distinct, including overlapping or nested slurs.
+- Includes a standard-library parser with a structured, byte-stable AST for
+  reading generated `concise-music-v1` files.
 - Provides both a command-line tool and a Windows-friendly drag-and-drop GUI.
 - Uses only the Python standard library for command-line conversion.
 
@@ -25,6 +27,41 @@ python concise_musicxml.py score.mxl
 
 Without `-o`, the converted score is printed to standard output.
 
+## Parsing concise music
+
+Use the parser as a library when an application needs reliable access to the
+format rather than ad-hoc whitespace or regular-expression splitting:
+
+```python
+from pathlib import Path
+
+from concise_music_parser import parse_file
+
+score = parse_file(Path("score.cmusic"))
+for part in score.parts:
+    for measure in part.measures:
+        for voice in measure.voices:
+            for event in voice.events:
+                print(event)
+```
+
+The AST exposes score/part metadata, instrument definitions, measures, exact
+fractional direction offsets and durations, voices, silent gaps, notes, chord
+members, instrument references, and ordered marker groups. Its scanner is aware
+of quoted strings and nested `()`, `[]`, and `{}` groups, so punctuation inside
+lyrics, custom technical text, microtonal pitches, and chord suffixes is not
+misread as a separator.
+
+Canonical converter output must render byte-for-byte unchanged:
+
+```console
+python concise_music_parser.py score.cmusic --roundtrip
+```
+
+Malformed input raises `ParseError` with its source line. The parser only
+accepts `format=concise-music-v1`; a future format version must be implemented
+explicitly rather than being guessed.
+
 ## Desktop GUI
 
 Install the drag-and-drop dependency:
@@ -38,6 +75,60 @@ On Windows, you can launch the interface by double-clicking `launch_gui.bat`.
 The GUI accepts multiple files, lets you choose the output directory, and
 writes one `.cmusic` file per source. It remains usable through the file picker
 if `tkinterdnd2` is unavailable.
+
+## Neutral MIDI
+
+The neutral MIDI path consumes the imported `SemanticScore` directly; it never
+parses cmusic:
+
+```python
+from concise_musicxml import import_musicxml, load_xml
+from neutral_midi import render_midi
+
+score = import_musicxml(load_xml(Path("score.musicxml")), "score.musicxml")
+result = render_midi(score)
+Path("score.mid").write_bytes(result.data)
+```
+
+Or use the standard-library CLI:
+
+```console
+python neutral_midi.py score.musicxml -o score.mid
+```
+
+`result.realization` contains provenance-bearing `PerformedNote` objects and a
+disposition for every semantic note/rest. `result.audit` verifies that every
+source event is accounted for and every generated note points back to one or
+more `SourceEventId` values. Tied score notes may therefore map many-to-one to a
+performed note without losing their authored identities.
+
+Initial neutral policies are deliberately conservative:
+
+- Standard MIDI format 1, 480 ticks per quarter; one conductor track and one
+  note track per semantic part.
+- Channels are assigned deterministically per pitched part/staff/voice/
+  instrument lane, excluding percussion channel 10. More than 15 lanes fails.
+- Written pitches are converted to sounding MIDI pitch using available
+  chromatic/octave transposition. Microtones and ambiguous diatonic-only or
+  doubled transpositions fail explicitly.
+- Velocity is always 64. No humanization, CC curves, program changes,
+  keyswitches, or sample-library behavior are generated.
+- Authored tempo and conventional time signatures are encoded; defaults are
+  120 quarter-note BPM and 4/4. Unsupported metronome units and nonstandard
+  meters fail explicitly.
+- Matching ties merge score events into one continuous performed note while
+  retaining every source identity.
+- Ornaments remain one neutral performed note and are marked as unexpanded in
+  the disposition. Grace notes currently fail explicitly rather than receiving
+  guessed timing.
+- Unpitched percussion fails until semantic MIDI note mappings are available.
+- Instrument identity affects lane assignment, but no MIDI program is inferred
+  from names.
+- Playback follows written linear measure order. Repeat barlines and navigation
+  directives are not expanded. Measure-repeat/multirest/slash shorthand fails
+  when concrete note content would need reconstruction.
+- Pedal and octave-shift directions fail until dedicated realization policies
+  exist. Dynamics and wedges do not alter the neutral velocity.
 
 ## Concise format
 
@@ -123,6 +214,47 @@ fonts, print coordinates, bezier geometry, and similar engraving data are
 omitted. MusicXML `<harmony>` chord symbols are intentionally omitted as
 analytical annotations.
 
+cmusic is an LLM-facing semantic serialization, not the authoritative source
+for expressive playback. MusicXML-derived score identity should remain in a
+shared semantic score model; a future performance plan may interpret that
+model without reconstructing its notes from cmusic. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for the pipeline boundary and minimal path to
+a shared authoritative AST.
+
+The upstream semantic representation is available independently of rendering:
+
+```python
+from pathlib import Path
+
+from concise_musicxml import import_musicxml, load_xml, render_cmusic
+
+score = import_musicxml(load_xml(Path("score.musicxml")), "score.musicxml")
+for part in score.parts:
+    for measure in part.measures:
+        for event in measure.events:
+            print(
+                event.provenance,
+                event.content,
+                event.onset,
+                event.duration,
+                event.ties,
+                event.slurs,
+            )
+
+cmusic = render_cmusic(score)
+```
+
+`convert(root, source)` remains the compatibility API and is exactly
+`render_cmusic(import_musicxml(root, source))`.
+
+Notated ties, playback ties, numbered slur endpoints, ordered articulation
+groups, authored fermata shapes, and grace slash/timing realization are typed
+semantic values in this upstream model. Technical playing indications use
+focused typed variants for harmonics, bends, fingerings/flags, nested
+components, numbered hammer/pull relations, and custom semantic text. Other
+note-notation categories remain ordered compact markers until a concrete
+consumer requires a typed migration.
+
 See [NOTATION_AUDIT.md](NOTATION_AUDIT.md) for semantic notation categories
 that have been identified but are not yet represented.
 
@@ -155,8 +287,15 @@ The regression suite includes paired semantic-collision and layout-normalizing
 tests in addition to conversion fundamentals, voices, notation spans,
 percussion identity, instrument changes, and grace/tuplet behavior.
 
-`semantic_audit.py` compares MusicXML and concise slur identities by part,
-measure, number, and endpoint type, and reports compression statistics:
+`semantic_audit.py` checks supported tie/slur relationships across both
+architectural boundaries:
+
+- MusicXML → semantic model, using exact per-part source-note identity;
+- semantic model → cmusic, using part, measure, relation kind, number, and
+  endpoint type.
+
+It parses cmusic with the grammar-aware parser rather than splitting marker or
+chord commas heuristically. The command also reports compression statistics:
 
 ```console
 python semantic_audit.py score.musicxml score.cmusic
@@ -168,6 +307,11 @@ representative combination of independent note semantics.
 ## Project files
 
 - `concise_musicxml.py` — converter and CLI.
+- `concise_music_parser.py` — parser, structured AST, renderer, and validation CLI.
 - `concise_musicxml_gui.py` — graphical batch converter.
+- `neutral_midi.py` — neutral realization, provenance audit, MIDI encoder, and CLI.
 - `test_concise_musicxml.py` — unit tests.
+- `test_concise_music_parser.py` — parser and byte-exact round-trip tests.
+- `test_neutral_midi.py` — neutral realization, provenance, and MIDI tests.
+- `ARCHITECTURE.md` — source-of-truth and future performance-rendering boundaries.
 - `NOTATION_AUDIT.md` — scoped review of currently omitted semantic notation.

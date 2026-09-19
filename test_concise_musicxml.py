@@ -1,10 +1,36 @@
 import unittest
+from fractions import Fraction
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from concise_musicxml import convert, load_xml
+from concise_musicxml import (
+    Articulation,
+    ArticulationGroup,
+    Fermata,
+    GraceSemantics,
+    Rest,
+    SemanticScore,
+    SlurRelation,
+    TechnicalGroup,
+    TechnicalBend,
+    TechnicalComponent,
+    TechnicalComponents,
+    TechnicalHarmonic,
+    TechnicalRelation,
+    TechnicalValue,
+    TieRelation,
+    Unpitched,
+    WrittenPitch,
+    convert,
+    import_musicxml,
+    load_xml,
+    render_cmusic,
+    render_event_suffix,
+    render_note_content,
+    semantic_note_event,
+)
 from concise_musicxml_gui import plan_outputs
-from semantic_audit import audit_slurs
+from semantic_audit import audit_relations, audit_slurs
 
 
 SCORE = """<?xml version="1.0"?>
@@ -24,13 +50,214 @@ SCORE = """<?xml version="1.0"?>
 
 
 class ConverterTests(unittest.TestCase):
+    def test_import_musicxml_exposes_ordered_owned_semantic_events(self):
+        root = ET.fromstring("""<score-partwise version="4.0">
+          <part-list><score-part id="P1"><part-name>Mixed</part-name>
+            <score-instrument id="P1-I1"><instrument-name>Violin</instrument-name></score-instrument>
+            <score-instrument id="P1-I2"><instrument-name>Snare</instrument-name>
+              <instrument-sound>drum.snare-drum</instrument-sound></score-instrument>
+          </score-part></part-list>
+          <part id="P1">
+            <measure number="A"><attributes><divisions>4</divisions></attributes>
+              <note><pitch><step>C</step><octave>4</octave></pitch><instrument id="P1-I1"/>
+                <duration>4</duration><voice>1</voice><staff>1</staff></note>
+              <note><chord/><pitch><step>E</step><octave>4</octave></pitch><instrument id="P1-I1"/>
+                <duration>4</duration><voice>1</voice><staff>1</staff></note>
+              <note><grace slash="yes" steal-time-previous="20" steal-time-following="30" make-time="4"/>
+                <pitch><step>D</step><octave>5</octave></pitch><instrument id="P1-I1"/>
+                <voice>2</voice><staff>2</staff></note>
+              <backup><duration>4</duration></backup>
+              <note><unpitched><display-step>D</display-step><display-octave>5</display-octave></unpitched>
+                <instrument id="P1-I2"/><duration>2</duration><voice>2</voice><staff>2</staff></note>
+            </measure>
+            <measure number="B">
+              <note><rest/><duration>4</duration><voice>1</voice><staff>1</staff></note>
+            </measure>
+          </part>
+        </score-partwise>""")
+
+        score = import_musicxml(root, "fixture.musicxml")
+
+        self.assertIsInstance(score, SemanticScore)
+        self.assertEqual(score.source, "fixture.musicxml")
+        self.assertEqual([part.identifier for part in score.parts], ["P1"])
+        part = score.parts[0]
+        self.assertEqual(part.name, "Mixed")
+        self.assertEqual([instrument.xml_id for instrument in part.instruments], ["P1-I1", "P1-I2"])
+        self.assertEqual(part.instrument_aliases, {"P1-I1": "I1", "P1-I2": "I2"})
+        self.assertEqual([(measure.index, measure.number) for measure in part.measures], [(1, "A"), (2, "B")])
+
+        first, chord_member, grace, unpitched = part.measures[0].events
+        self.assertEqual([event.provenance.note_index for event in part.measures[0].events], [1, 2, 3, 4])
+        self.assertEqual(first.content, WrittenPitch("C", Fraction(0), "4"))
+        self.assertEqual((first.onset, first.duration), (Fraction(0), Fraction(1)))
+        self.assertEqual((first.provenance.voice, first.provenance.staff), ("1", "1"))
+        self.assertEqual(first.instrument_id, "P1-I1")
+        self.assertEqual(first.instrument_alias, "I1")
+        self.assertFalse(first.chord)
+        self.assertTrue(chord_member.chord)
+        self.assertEqual(chord_member.onset, first.onset)
+        self.assertEqual(grace.grace, GraceSemantics(True, "20", "30", "4"))
+        self.assertEqual((grace.provenance.voice, grace.provenance.staff), ("2", "2"))
+        self.assertEqual(grace.duration, Fraction(0))
+        self.assertIsInstance(unpitched.content, Unpitched)
+        self.assertEqual(unpitched.content.instrument_id, "P1-I2")
+        self.assertEqual(unpitched.content.instrument_alias, "I2")
+        self.assertEqual(unpitched.content.fallback_position, "")
+
+        rest = part.measures[1].events[0]
+        self.assertIsInstance(rest.content, Rest)
+        self.assertEqual(rest.provenance.note_index, 5)
+        self.assertEqual((rest.provenance.measure_index, rest.provenance.measure_number), (2, "B"))
+        self.assertEqual(render_cmusic(score), convert(root, "fixture.musicxml"))
+        self.assertIn("D5{g,gslash,gprev=20,gnext=30,gmake=4}@I1/0", render_cmusic(score))
+
+    def test_musicxml_note_becomes_typed_semantic_event_before_rendering(self):
+        note = ET.fromstring("""<note>
+          <pitch><step>C</step><alter>0.5</alter><octave>4</octave></pitch>
+          <duration>2</duration><voice>2</voice><staff>3</staff><instrument id="P1-I2"/>
+          <tie type="start"/>
+          <notations><tied type="start" number="2"/><slur type="start" number="4"/>
+            <articulations placement="above"><staccato default-x="9"/><accent/></articulations>
+            <technical><fingering>2</fingering></technical>
+            <fermata placement="above" default-y="12">angled</fermata>
+          </notations>
+          <notations><articulations><breath-mark>comma</breath-mark></articulations>
+            <fermata placement="below">square</fermata>
+          </notations>
+        </note>""")
+        event = semantic_note_event(
+            note,
+            part_id="P1",
+            measure_number="7",
+            measure_index=6,
+            note_index=19,
+            staff="3",
+            voice="2",
+            onset=Fraction(3, 2),
+            duration=Fraction(1, 2),
+            chord=False,
+            instrument_aliases={"P1-I2": "I2"},
+        )
+
+        self.assertEqual(event.provenance.part_id, "P1")
+        self.assertEqual(event.provenance.measure_number, "7")
+        self.assertEqual(event.provenance.measure_index, 6)
+        self.assertEqual(event.provenance.note_index, 19)
+        self.assertEqual((event.provenance.staff, event.provenance.voice), ("3", "2"))
+        self.assertEqual(event.onset, Fraction(3, 2))
+        self.assertEqual(event.duration, Fraction(1, 2))
+        self.assertEqual(event.content, WrittenPitch("C", Fraction(1, 2), "4"))
+        self.assertEqual(event.instrument_id, "P1-I2")
+        self.assertEqual(event.instrument_alias, "I2")
+        self.assertEqual(render_note_content(event.content), "C(+1/2)4")
+        self.assertEqual(
+            event.ties,
+            (TieRelation("notated", "start", "2"), TieRelation("playback", "start")),
+        )
+        self.assertEqual(event.slurs, (SlurRelation("start", "4"),))
+        self.assertEqual(
+            event.articulations,
+            (
+                ArticulationGroup((Articulation("staccato"), Articulation("accent"))),
+                ArticulationGroup((Articulation("breath-mark", "comma"),)),
+            ),
+        )
+        self.assertEqual(
+            event.technical,
+            (TechnicalGroup((TechnicalValue("fingering", "2"),)),),
+        )
+        self.assertEqual(event.fermatas, (Fermata("angled"), Fermata("square")))
+        self.assertEqual(event.pre_grace_markers, ())
+        self.assertEqual(event.notation_markers, ())
+        self.assertEqual(
+            render_event_suffix(event),
+            '{t2>,s4>,art=staccato+accent,art=breath-mark:"comma",'
+            'tech=fingering:2,fer=angled,fer=square}',
+        )
+        self.assertFalse(hasattr(event, "token"))
+
+    def test_imported_ties_and_slurs_are_typed_across_measures(self):
+        root = ET.fromstring("""<score-partwise version="4.0">
+          <part-list><score-part id="P1"><part-name>Relations</part-name></score-part></part-list>
+          <part id="P1">
+            <measure number="1"><attributes><divisions>1</divisions></attributes>
+              <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+                <tie type="start"/>
+                <notations><tied type="start" number="3"/><slur type="start" number="1"/></notations>
+                <notations><slur type="start" number="2"/></notations>
+              </note>
+            </measure>
+            <measure number="2">
+              <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+                <tie type="stop"/>
+                <notations><slur type="stop" number="2"/><tied type="stop" number="3"/></notations>
+                <notations><slur type="stop" number="1"/></notations>
+              </note>
+            </measure>
+          </part>
+        </score-partwise>""")
+
+        score = import_musicxml(root)
+        start = score.parts[0].measures[0].events[0]
+        stop = score.parts[0].measures[1].events[0]
+
+        self.assertEqual(
+            start.ties,
+            (TieRelation("notated", "start", "3"), TieRelation("playback", "start")),
+        )
+        self.assertEqual(
+            stop.ties,
+            (TieRelation("notated", "stop", "3"), TieRelation("playback", "stop")),
+        )
+        self.assertEqual(
+            start.slurs,
+            (SlurRelation("start", "1"), SlurRelation("start", "2")),
+        )
+        self.assertEqual(
+            stop.slurs,
+            (SlurRelation("stop", "2"), SlurRelation("stop", "1")),
+        )
+        self.assertEqual((start.provenance.note_index, stop.provenance.note_index), (1, 2))
+        self.assertIn("m1 div=1 | C4{t3>,s1>,s2>}/1", render_cmusic(score))
+        self.assertIn("m2 | C4{t3<,s2<,s1<}/1", render_cmusic(score))
+
     def test_representative_golden_output_is_byte_exact(self):
         fixture_dir = Path(__file__).parent / "tests" / "fixtures"
         root = load_xml(fixture_dir / "semantic_golden.musicxml")
+        score = import_musicxml(root)
         actual = convert(root)
         expected = (fixture_dir / "semantic_golden.cmusic").read_text(encoding="utf-8")
         self.assertEqual(actual, expected)
         self.assertEqual(audit_slurs(root, actual), ({}, {}))
+        self.assertTrue(audit_relations(root, score, actual).ok)
+
+    def test_relation_audit_detects_equal_counts_at_wrong_locations(self):
+        root = ET.fromstring("""<score-partwise version="4.0">
+          <part-list><score-part id="P1"><part-name>Audit</part-name></score-part></part-list>
+          <part id="P1">
+            <measure number="1"><attributes><divisions>1</divisions></attributes>
+              <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration>
+                <notations><slur type="start" number="1"/></notations></note>
+            </measure>
+            <measure number="2">
+              <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration>
+                <notations><slur type="stop" number="1"/></notations></note>
+            </measure>
+          </part>
+        </score-partwise>""")
+        score = import_musicxml(root)
+        output = render_cmusic(score)
+        misplaced = output.replace("{s1>}", "{swap}").replace("{s1<}", "{s1>}").replace(
+            "{swap}", "{s1<}"
+        )
+
+        audit = audit_relations(root, score, misplaced)
+        self.assertFalse(audit.ok)
+        self.assertFalse(audit.source_to_model_missing)
+        self.assertFalse(audit.source_to_model_unexpected)
+        self.assertEqual(sum(audit.model_to_output_missing.values()), 2)
+        self.assertEqual(sum(audit.model_to_output_unexpected.values()), 2)
 
     def test_compact_score(self):
         output = convert(ET.fromstring(SCORE))
@@ -456,6 +683,54 @@ class ConverterTests(unittest.TestCase):
         self.assertNotEqual(with_technical, without_technical)
         self.assertNotIn("placement", with_technical)
         self.assertNotIn("font-size", with_technical)
+
+    def test_imported_technical_indications_use_semantic_variants(self):
+        note = ET.fromstring("""<note><pitch><step>C</step><octave>4</octave></pitch>
+          <duration>1</duration><notations><technical>
+            <harmonic><natural/><touching-pitch/></harmonic>
+            <bend><bend-alter>1.5</bend-alter><pre-bend/><release offset="2"/><with-bar/></bend>
+            <fingering alternate="yes" substitution="yes">2</fingering>
+            <hole><hole-closed location="right">half</hole-closed></hole>
+            <hammer-on type="start" number="3">H</hammer-on>
+            <other-technical>sul pont.</other-technical>
+          </technical></notations></note>""")
+        event = semantic_note_event(
+            note,
+            part_id="P1",
+            measure_number="1",
+            measure_index=1,
+            note_index=1,
+            staff="1",
+            voice="1",
+            onset=Fraction(0),
+            duration=Fraction(1),
+            chord=False,
+            instrument_aliases={},
+        )
+
+        self.assertEqual(
+            event.technical,
+            (
+                TechnicalGroup(
+                    (
+                        TechnicalHarmonic(("natural",), ("touching",)),
+                        TechnicalBend("1.5", True, True, "2", True),
+                        TechnicalValue("fingering", "2", True, True),
+                        TechnicalComponents(
+                            "hole", (TechnicalComponent("hole-closed", "half", "right"),)
+                        ),
+                        TechnicalRelation("hammer-on", "start", "3", "H"),
+                        TechnicalValue("other-technical", "sul pont."),
+                    )
+                ),
+            ),
+        )
+        self.assertEqual(
+            render_event_suffix(event),
+            '{tech=harmonic:natural+touching+bend:alter=1.5+pre-bend+release@2+with-bar+'
+            'fingering:2(alt;sub)+hole:hole-closed=half@right+hammer-on3>:"H"+'
+            'other-technical:"sul pont."}',
+        )
 
     def test_technical_layout_variants_normalize(self):
         first = self.concise_notes("""<measure number="1"><attributes><divisions>1</divisions></attributes>

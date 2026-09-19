@@ -73,20 +73,161 @@ def compact_atom(value: str) -> str:
     return value if re.fullmatch(r"[A-Za-z0-9_.#/+%\-]+", value) else quote(value)
 
 
+@dataclass(frozen=True)
+class WrittenPitch:
+    step: str
+    alter: Fraction
+    octave: str
+
+
+@dataclass(frozen=True)
+class Rest:
+    pass
+
+
+@dataclass(frozen=True)
+class Unpitched:
+    instrument_id: str = ""
+    instrument_alias: str = ""
+    fallback_position: str = ""
+
+
+@dataclass(frozen=True)
+class UnknownNote:
+    pass
+
+
+NoteContent = WrittenPitch | Rest | Unpitched | UnknownNote
+
+
+@dataclass(frozen=True)
+class TieRelation:
+    kind: str  # "notated" (<tied>) or "playback" (<tie>)
+    relation_type: str
+    number: str = ""
+
+
+@dataclass(frozen=True)
+class SlurRelation:
+    relation_type: str
+    number: str
+
+
+@dataclass(frozen=True)
+class Articulation:
+    name: str
+    value: str = ""
+
+
+@dataclass(frozen=True)
+class ArticulationGroup:
+    indications: tuple[Articulation, ...]
+
+
+@dataclass(frozen=True)
+class Fermata:
+    shape: str
+
+
+@dataclass(frozen=True)
+class GraceSemantics:
+    slash: bool = False
+    steal_time_previous: str = ""
+    steal_time_following: str = ""
+    make_time: str = ""
+
+
+@dataclass(frozen=True)
+class TechnicalHarmonic:
+    kinds: tuple[str, ...] = ()
+    pitches: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class TechnicalBend:
+    alter: str = ""
+    pre_bend: bool = False
+    release: bool = False
+    release_offset: str = ""
+    with_bar: bool = False
+
+
+@dataclass(frozen=True)
+class TechnicalValue:
+    kind: str
+    value: str = ""
+    alternate: bool = False
+    substitution: bool = False
+
+
+@dataclass(frozen=True)
+class TechnicalComponent:
+    name: str
+    value: str = ""
+    location: str = ""
+
+
+@dataclass(frozen=True)
+class TechnicalComponents:
+    kind: str
+    components: tuple[TechnicalComponent, ...] = ()
+
+
+@dataclass(frozen=True)
+class TechnicalRelation:
+    kind: str
+    relation_type: str
+    number: str
+    value: str = ""
+
+
+TechnicalIndication = (
+    TechnicalHarmonic
+    | TechnicalBend
+    | TechnicalValue
+    | TechnicalComponents
+    | TechnicalRelation
+)
+
+
+@dataclass(frozen=True)
+class TechnicalGroup:
+    indications: tuple[TechnicalIndication, ...]
+
+
+@dataclass(frozen=True)
+class NoteProvenance:
+    part_id: str
+    measure_number: str
+    measure_index: int
+    note_index: int
+    staff: str
+    voice: str
+
+
 @dataclass
-class Event:
-    start: Fraction
+class SemanticNoteEvent:
+    provenance: NoteProvenance
+    onset: Fraction
     duration: Fraction
-    token: str
+    content: NoteContent
     chord: bool = False
-    instrument: str = ""
+    grace: GraceSemantics | None = None
+    instrument_id: str = ""
+    instrument_alias: str = ""
+    ties: tuple[TieRelation, ...] = ()
+    slurs: tuple[SlurRelation, ...] = ()
+    articulations: tuple[ArticulationGroup, ...] = ()
+    technical: tuple[TechnicalGroup, ...] = ()
+    fermatas: tuple[Fermata, ...] = ()
+    pre_grace_markers: tuple[str, ...] = ()
+    notation_markers: tuple[str, ...] = ()
     arpeggiations: tuple[tuple[str, str, str], ...] = ()
 
 
 @dataclass
 class Voice:
-    events: list[Event] = field(default_factory=list)
-    last_onset: Fraction = Fraction(0)
+    events: list[SemanticNoteEvent] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -110,6 +251,34 @@ class NavigationState:
         return f"C{self.codas}"
 
 
+@dataclass
+class SemanticMeasure:
+    number: str
+    index: int
+    implicit: bool = False
+    content_duration: Fraction = Fraction(0)
+    attributes: list[str] = field(default_factory=list)
+    directions: list[tuple[Fraction, str]] = field(default_factory=list)
+    events: list[SemanticNoteEvent] = field(default_factory=list)
+
+
+@dataclass
+class SemanticPart:
+    identifier: str
+    name: str = ""
+    instruments: list[InstrumentDefinition] = field(default_factory=list)
+    instrument_aliases: dict[str, str] = field(default_factory=dict)
+    measures: list[SemanticMeasure] = field(default_factory=list)
+
+
+@dataclass
+class SemanticScore:
+    title: str = ""
+    creators: list[str] = field(default_factory=list)
+    source: str = ""
+    parts: list[SemanticPart] = field(default_factory=list)
+
+
 def load_xml(path: Path) -> ET.Element:
     data: bytes
     if path.suffix.lower() == ".mxl" or zipfile.is_zipfile(path):
@@ -124,26 +293,25 @@ def load_xml(path: Path) -> ET.Element:
     return ET.parse(io.BytesIO(data)).getroot()
 
 
-def pitch_token(note: ET.Element, instrument_aliases: dict[str, str]) -> str:
+def note_content(note: ET.Element, instrument_aliases: dict[str, str]) -> NoteContent:
     if child(note, "rest") is not None:
         # display-step/display-octave only position the rest glyph vertically;
         # they are engraving data, not a sounding pitch or musical event.
-        return "r"
+        return Rest()
     if child(note, "unpitched") is not None:
         instrument = child(note, "instrument")
         instrument_id = instrument.get("id", "").strip() if instrument is not None else ""
         if instrument_id and instrument_id in instrument_aliases:
-            return "x@" + instrument_aliases[instrument_id]
+            return Unpitched(instrument_id, instrument_aliases[instrument_id])
         # With no semantic reference, retain display position only as an
         # explicitly unknown fallback.  Never infer identity from it.
         unpitched = child(note, "unpitched")
         step = text(unpitched, "display-step")
         octave = text(unpitched, "display-octave")
-        position = step + octave
-        return f"x?({position})" if position else "x?"
+        return Unpitched(instrument_id, "", step + octave)
     pitch = child(note, "pitch")
     if pitch is None:
-        return "?"
+        return UnknownNote()
     step = text(pitch, "step", "?")
     octave = text(pitch, "octave", "?")
     alter_raw = text(pitch, "alter", "0")
@@ -151,10 +319,86 @@ def pitch_token(note: ET.Element, instrument_aliases: dict[str, str]) -> str:
         alter = Fraction(alter_raw)
     except ValueError:
         alter = Fraction(0)
+    return WrittenPitch(step, alter, octave)
+
+
+def render_note_content(content: NoteContent) -> str:
+    if isinstance(content, Rest):
+        return "r"
+    if isinstance(content, Unpitched):
+        if content.instrument_alias:
+            return "x@" + content.instrument_alias
+        return f"x?({content.fallback_position})" if content.fallback_position else "x?"
+    if isinstance(content, UnknownNote):
+        return "?"
+    alter = content.alter
     accidental = {Fraction(-2): "bb", Fraction(-1): "b", Fraction(0): "", Fraction(1): "#", Fraction(2): "##"}.get(alter)
     if accidental is None:
         accidental = f"({'+' if alter > 0 else ''}{frac(alter)})"
-    return f"{step}{accidental}{octave}"
+    return f"{content.step}{accidental}{content.octave}"
+
+
+def semantic_note_event(
+    note: ET.Element,
+    *,
+    part_id: str,
+    measure_number: str,
+    measure_index: int,
+    note_index: int,
+    staff: str,
+    voice: str,
+    onset: Fraction,
+    duration: Fraction,
+    chord: bool,
+    instrument_aliases: dict[str, str],
+) -> SemanticNoteEvent:
+    """Extract the first authoritative semantic event seam from MusicXML."""
+    instrument = child(note, "instrument")
+    instrument_id = instrument.get("id", "").strip() if instrument is not None else ""
+    content = note_content(note, instrument_aliases)
+    instrument_alias = ""
+    if isinstance(content, WrittenPitch) and instrument_aliases:
+        if instrument_id:
+            instrument_alias = instrument_aliases.get(instrument_id, "?")
+        elif len(instrument_aliases) == 1:
+            instrument_alias = next(iter(instrument_aliases.values()))
+        else:
+            instrument_alias = "?"
+    return SemanticNoteEvent(
+        provenance=NoteProvenance(
+            part_id=part_id,
+            measure_number=measure_number,
+            measure_index=measure_index,
+            note_index=note_index,
+            staff=staff,
+            voice=voice,
+        ),
+        onset=onset,
+        duration=duration,
+        content=content,
+        chord=chord,
+        grace=grace_semantics(note),
+        instrument_id=instrument_id,
+        instrument_alias=instrument_alias,
+        ties=tie_relations(note),
+        slurs=slur_relations(note),
+        articulations=articulation_groups(note),
+        technical=technical_groups(note),
+        fermatas=fermatas(note),
+        pre_grace_markers=tuple(
+            marker
+            for extractor in PRE_GRACE_MARKER_EXTRACTORS
+            for marker in extractor(note)
+        ),
+        # Remaining categories stay in their existing compact marker form and
+        # source order until a focused semantic migration needs them.
+        notation_markers=tuple(
+            marker
+            for extractor in POST_GRACE_MARKER_EXTRACTORS
+            for marker in extractor(note)
+        ),
+        arpeggiations=arpeggiation_markers(note),
+    )
 
 
 def span_marker(element: ET.Element, prefix: str) -> str:
@@ -184,56 +428,118 @@ def trill_semantics(element: ET.Element) -> str:
     return "(" + ";".join(values) + ")" if values else ""
 
 
-def technical_markers(technical: ET.Element) -> list[str]:
-    values: list[str] = []
+def technical_indications(technical: ET.Element) -> tuple[TechnicalIndication, ...]:
+    values: list[TechnicalIndication] = []
     for indication in technical:
         name = local(indication.tag)
         value = (indication.text or "").strip()
         if name == "harmonic":
             kinds = [local(x.tag) for x in indication if local(x.tag) in {"natural", "artificial"}]
             pitches = [local(x.tag).removesuffix("-pitch") for x in indication if local(x.tag).endswith("-pitch")]
-            detail = "+".join(kinds + pitches)
-            values.append("harmonic" + (":" + detail if detail else ""))
+            values.append(TechnicalHarmonic(tuple(kinds), tuple(pitches)))
         elif name == "bend":
-            details: list[str] = []
             alter = text(indication, "bend-alter")
-            if alter:
-                details.append("alter=" + alter)
-            if child(indication, "pre-bend") is not None:
-                details.append("pre-bend")
             release = child(indication, "release")
-            if release is not None:
-                details.append("release" + ("@" + release.get("offset", "") if release.get("offset") else ""))
-            if child(indication, "with-bar") is not None:
-                details.append("with-bar")
-            values.append("bend" + (":" + "+".join(details) if details else ""))
+            values.append(
+                TechnicalBend(
+                    alter=alter,
+                    pre_bend=child(indication, "pre-bend") is not None,
+                    release=release is not None,
+                    release_offset=release.get("offset", "") if release is not None else "",
+                    with_bar=child(indication, "with-bar") is not None,
+                )
+            )
         elif name in {"fingering", "heel", "toe"}:
-            attributes = []
-            if indication.get("alternate") == "yes":
-                attributes.append("alt")
-            if indication.get("substitution") == "yes":
-                attributes.append("sub")
-            suffix = "(" + ";".join(attributes) + ")" if attributes else ""
-            values.append(name + (":" + compact_atom(value) if value else "") + suffix)
+            values.append(
+                TechnicalValue(
+                    name,
+                    value,
+                    alternate=indication.get("alternate") == "yes",
+                    substitution=indication.get("substitution") == "yes",
+                )
+            )
         elif name in {"hole", "arrow", "harmon-mute"}:
-            details: list[str] = []
+            details: list[TechnicalComponent] = []
             for item in indication:
-                item_name = local(item.tag)
-                item_value = (item.text or "").strip()
-                location = item.get("location", "")
-                detail = item_name + ("=" + compact_atom(item_value) if item_value else "")
-                if location:
-                    detail += "@" + safe_id(location)
-                details.append(detail)
-            values.append(name + (":" + "+".join(details) if details else ""))
+                details.append(
+                    TechnicalComponent(
+                        local(item.tag),
+                        (item.text or "").strip(),
+                        item.get("location", ""),
+                    )
+                )
+            values.append(TechnicalComponents(name, tuple(details)))
         elif name in {"hammer-on", "pull-off"}:
-            relation_type = indication.get("type", "")
-            number = safe_id(indication.get("number", "1"))
-            symbol = {"start": ">", "stop": "<"}.get(relation_type, ":" + relation_type)
-            values.append(name + number + symbol + (":" + compact_text(value) if value else ""))
+            values.append(
+                TechnicalRelation(
+                    name,
+                    indication.get("type", ""),
+                    safe_id(indication.get("number", "1")),
+                    value,
+                )
+            )
         else:
-            values.append(name + (":" + compact_atom(value) if value else ""))
-    return values
+            values.append(TechnicalValue(name, value))
+    return tuple(values)
+
+
+def render_technical_indication(indication: TechnicalIndication) -> str:
+    if isinstance(indication, TechnicalHarmonic):
+        detail = "+".join(indication.kinds + indication.pitches)
+        return "harmonic" + (":" + detail if detail else "")
+    if isinstance(indication, TechnicalBend):
+        details: list[str] = []
+        if indication.alter:
+            details.append("alter=" + indication.alter)
+        if indication.pre_bend:
+            details.append("pre-bend")
+        if indication.release:
+            details.append("release" + ("@" + indication.release_offset if indication.release_offset else ""))
+        if indication.with_bar:
+            details.append("with-bar")
+        return "bend" + (":" + "+".join(details) if details else "")
+    if isinstance(indication, TechnicalComponents):
+        details = []
+        for component in indication.components:
+            detail = component.name + ("=" + compact_atom(component.value) if component.value else "")
+            if component.location:
+                detail += "@" + safe_id(component.location)
+            details.append(detail)
+        return indication.kind + (":" + "+".join(details) if details else "")
+    if isinstance(indication, TechnicalRelation):
+        symbol = {"start": ">", "stop": "<"}.get(
+            indication.relation_type, ":" + indication.relation_type
+        )
+        return (
+            indication.kind
+            + indication.number
+            + symbol
+            + (":" + compact_text(indication.value) if indication.value else "")
+        )
+    attributes = []
+    if indication.alternate:
+        attributes.append("alt")
+    if indication.substitution:
+        attributes.append("sub")
+    suffix = "(" + ";".join(attributes) + ")" if attributes else ""
+    return indication.kind + (":" + compact_atom(indication.value) if indication.value else "") + suffix
+
+
+def technical_groups(note: ET.Element) -> tuple[TechnicalGroup, ...]:
+    groups = []
+    for technical in notation_elements(note, "technical"):
+        indications = technical_indications(technical)
+        if indications:
+            groups.append(TechnicalGroup(indications))
+    return tuple(groups)
+
+
+def render_technical_groups(groups: tuple[TechnicalGroup, ...]) -> list[str]:
+    return [
+        "tech=" + "+".join(render_technical_indication(item) for item in group.indications)
+        for group in groups
+        if group.indications
+    ]
 
 
 def arpeggiation_markers(note: ET.Element) -> tuple[tuple[str, str, str], ...]:
@@ -247,16 +553,32 @@ def arpeggiation_markers(note: ET.Element) -> tuple[tuple[str, str, str], ...]:
     return tuple(markers)
 
 
-def tie_markers(note: ET.Element) -> list[str]:
-    markers: list[str] = []
-    playback_ties = {x.get("type", "") for x in (x for x in note if local(x.tag) == "tie")}
-    notated_tie_types: set[str] = set()
+def tie_relations(note: ET.Element) -> tuple[TieRelation, ...]:
+    relations: list[TieRelation] = []
     for tied in notation_elements(note, "tied"):
         tie_type = tied.get("type", "")
-        number = safe_id(tied.get("number", "1"))
+        if tie_type in {"start", "stop", "continue", "let-ring"}:
+            relations.append(TieRelation("notated", tie_type, safe_id(tied.get("number", "1"))))
+    for tie in (item for item in note if local(item.tag) == "tie"):
+        tie_type = tie.get("type", "")
+        if tie_type in {"start", "stop"}:
+            relations.append(TieRelation("playback", tie_type))
+    return tuple(relations)
+
+
+def render_tie_relations(relations: tuple[TieRelation, ...]) -> list[str]:
+    markers: list[str] = []
+    playback_ties = {
+        relation.relation_type for relation in relations if relation.kind == "playback"
+    }
+    notated_tie_types: set[str] = set()
+    for relation in relations:
+        if relation.kind != "notated":
+            continue
+        tie_type = relation.relation_type
         symbol = {"start": ">", "stop": "<", "continue": "~"}.get(tie_type)
         if symbol:
-            markers.append(f"t{number}{symbol}")
+            markers.append(f"t{relation.number}{symbol}")
             notated_tie_types.add(tie_type)
         elif tie_type == "let-ring":
             markers.append("let-ring")
@@ -269,8 +591,12 @@ def tie_markers(note: ET.Element) -> list[str]:
     return markers
 
 
-def slur_markers(note: ET.Element) -> list[str]:
-    markers: list[str] = []
+def tie_markers(note: ET.Element) -> list[str]:
+    return render_tie_relations(tie_relations(note))
+
+
+def slur_relations(note: ET.Element) -> tuple[SlurRelation, ...]:
+    relations: list[SlurRelation] = []
     # Slurs are separate from ties and retain their MusicXML number so nested
     # and overlapping phrases can be paired.  Other slur attributes describe
     # engraving and are intentionally omitted.
@@ -278,37 +604,68 @@ def slur_markers(note: ET.Element) -> list[str]:
         slur_type = slur.get("type", "")
         if slur_type in {"start", "stop"}:
             number = safe_id(slur.get("number", "1"))
-            markers.append(f"s{number}{'>' if slur_type == 'start' else '<'}")
-    return markers
+            relations.append(SlurRelation(slur_type, number))
+    return tuple(relations)
 
 
-def articulation_markers(note: ET.Element) -> list[str]:
-    markers: list[str] = []
+def render_slur_relations(relations: tuple[SlurRelation, ...]) -> list[str]:
+    return [
+        f"s{relation.number}{'>' if relation.relation_type == 'start' else '<'}"
+        for relation in relations
+    ]
+
+
+def slur_markers(note: ET.Element) -> list[str]:
+    return render_slur_relations(slur_relations(note))
+
+
+def articulation_groups(note: ET.Element) -> tuple[ArticulationGroup, ...]:
+    groups: list[ArticulationGroup] = []
     for articulations in notation_elements(note, "articulations"):
-        values = []
+        indications: list[Articulation] = []
         for articulation in articulations:
             name = local(articulation.tag)
             value = (articulation.text or "").strip()
-            values.append(name + (":" + compact_text(value) if value else ""))
+            indications.append(Articulation(name, value))
+        if indications:
+            groups.append(ArticulationGroup(tuple(indications)))
+    return tuple(groups)
+
+
+def render_articulation_groups(groups: tuple[ArticulationGroup, ...]) -> list[str]:
+    markers: list[str] = []
+    for group in groups:
+        values = [
+            indication.name
+            + (":" + compact_text(indication.value) if indication.value else "")
+            for indication in group.indications
+        ]
         if values:
             markers.append("art=" + "+".join(values))
     return markers
 
 
+def articulation_markers(note: ET.Element) -> list[str]:
+    return render_articulation_groups(articulation_groups(note))
+
+
 def technical_notation_markers(note: ET.Element) -> list[str]:
-    markers: list[str] = []
-    for technical in notation_elements(note, "technical"):
-        values = technical_markers(technical)
-        if values:
-            markers.append("tech=" + "+".join(values))
-    return markers
+    return render_technical_groups(technical_groups(note))
+
+
+def fermatas(note: ET.Element) -> tuple[Fermata, ...]:
+    return tuple(
+        Fermata((fermata.text or "normal").strip() or "normal")
+        for fermata in notation_elements(note, "fermata")
+    )
+
+
+def render_fermatas(values: tuple[Fermata, ...]) -> list[str]:
+    return ["fer=" + safe_id(fermata.shape) for fermata in values]
 
 
 def fermata_markers(note: ET.Element) -> list[str]:
-    return [
-        "fer=" + safe_id((fermata.text or "normal").strip() or "normal")
-        for fermata in notation_elements(note, "fermata")
-    ]
+    return render_fermatas(fermatas(note))
 
 
 def ornament_markers(note: ET.Element) -> list[str]:
@@ -372,21 +729,36 @@ def time_modification_markers(note: ET.Element) -> list[str]:
     return [marker]
 
 
-def grace_markers(note: ET.Element) -> list[str]:
+def grace_semantics(note: ET.Element) -> GraceSemantics | None:
     grace = child(note, "grace")
+    if grace is None:
+        return None
+    return GraceSemantics(
+        slash=grace.get("slash") == "yes",
+        steal_time_previous=grace.get("steal-time-previous", ""),
+        steal_time_following=grace.get("steal-time-following", ""),
+        make_time=grace.get("make-time", ""),
+    )
+
+
+def render_grace_semantics(grace: GraceSemantics | None) -> list[str]:
     if grace is None:
         return []
     markers = ["g"]
-    if grace.get("slash") == "yes":
+    if grace.slash:
         markers.append("gslash")
-    for attribute, marker in (
-        ("steal-time-previous", "gprev"),
-        ("steal-time-following", "gnext"),
-        ("make-time", "gmake"),
+    for value, marker in (
+        (grace.steal_time_previous, "gprev"),
+        (grace.steal_time_following, "gnext"),
+        (grace.make_time, "gmake"),
     ):
-        if grace.get(attribute):
-            markers.append(marker + "=" + grace.get(attribute, ""))
+        if value:
+            markers.append(marker + "=" + value)
     return markers
+
+
+def grace_markers(note: ET.Element) -> list[str]:
+    return render_grace_semantics(grace_semantics(note))
 
 
 def notehead_markers(note: ET.Element) -> list[str]:
@@ -450,9 +822,26 @@ NOTE_MARKER_EXTRACTORS = (
     lyric_markers,
 )
 
+PRE_GRACE_MARKER_EXTRACTORS = NOTE_MARKER_EXTRACTORS[5:9]
+POST_GRACE_MARKER_EXTRACTORS = NOTE_MARKER_EXTRACTORS[10:]
+
 
 def note_suffix(note: ET.Element) -> str:
     markers = [marker for extractor in NOTE_MARKER_EXTRACTORS for marker in extractor(note)]
+    return ("{" + ",".join(markers) + "}") if markers else ""
+
+
+def render_event_suffix(event: SemanticNoteEvent) -> str:
+    markers = (
+        render_tie_relations(event.ties)
+        + render_slur_relations(event.slurs)
+        + render_articulation_groups(event.articulations)
+        + render_technical_groups(event.technical)
+        + render_fermatas(event.fermatas)
+        + list(event.pre_grace_markers)
+        + render_grace_semantics(event.grace)
+        + list(event.notation_markers)
+    )
     return ("{" + ",".join(markers) + "}") if markers else ""
 
 
@@ -629,7 +1018,7 @@ def add_instrument(token: str, alias: str) -> str:
     return token + marker if brace < 0 else token[:brace] + marker + token[brace:]
 
 
-def normalized_arpeggiations(events: list[Event]) -> list[str]:
+def normalized_arpeggiations(events: list[SemanticNoteEvent]) -> list[str]:
     order: list[tuple[str, str]] = []
     directions: dict[tuple[str, str], list[str]] = {}
     for event in events:
@@ -660,25 +1049,28 @@ def render_voice(
     voice_key: str = "1",
     multiple_instruments: bool = False,
 ) -> str:
-    grouped: list[tuple[Fraction, Fraction, list[Event]]] = []
-    for _, event in sorted(enumerate(voice.events), key=lambda item: (item[1].start, item[0])):
-        if event.chord and grouped and grouped[-1][0] == event.start and grouped[-1][1] == event.duration:
+    grouped: list[tuple[Fraction, Fraction, list[SemanticNoteEvent]]] = []
+    for _, event in sorted(enumerate(voice.events), key=lambda item: (item[1].onset, item[0])):
+        if event.chord and grouped and grouped[-1][0] == event.onset and grouped[-1][1] == event.duration:
             grouped[-1][2].append(event)
         else:
-            grouped.append((event.start, event.duration, [event]))
+            grouped.append((event.onset, event.duration, [event]))
     cursor = Fraction(0)
     tokens: list[str] = []
     for start, duration, events in grouped:
         if start > cursor:
             tokens.append("_" + frac(start - cursor))
-        pitches = [event.token for event in events]
-        identities = [event.instrument for event in events if event.instrument]
+        pitches = [render_note_content(event.content) + render_event_suffix(event) for event in events]
+        identities = [event.instrument_alias for event in events if event.instrument_alias]
         if multiple_instruments and identities:
             distinct = list(dict.fromkeys(identities))
             state = instrument_states.get(voice_key, "") if instrument_states is not None else ""
             mixed_event = len(distinct) > 1 or len(identities) != len(events)
             if mixed_event:
-                pitches = [add_instrument(event.token, event.instrument) if event.instrument else event.token for event in events]
+                pitches = [
+                    add_instrument(pitch, event.instrument_alias) if event.instrument_alias else pitch
+                    for pitch, event in zip(pitches, events)
+                ]
                 next_state = identities[0]
             else:
                 next_state = distinct[0]
@@ -753,7 +1145,8 @@ def instrument_catalog(
     return definitions, aliases
 
 
-def convert(root: ET.Element, source: str = "") -> str:
+def import_musicxml(root: ET.Element, source: str = "") -> SemanticScore:
+    """Import MusicXML into the reusable upstream semantic representation."""
     root_name = local(root.tag)
     if root_name not in {"score-partwise", "score-timewise"}:
         raise ValueError(f"unsupported root element: {root_name}")
@@ -765,14 +1158,7 @@ def convert(root: ET.Element, source: str = "") -> str:
     if not title and work is not None:
         title = text(work, "work-title")
     creators = [x.text.strip() for x in descendants(root, "creator") if x.text and x.text.strip()]
-    header = ["@score", "format=concise-music-v1"]
-    if title:
-        header.append("title=" + quote(title))
-    if creators:
-        header.append("creator=" + quote("; ".join(creators)))
-    if source:
-        header.append("source=" + quote(source))
-    lines = [" ".join(header)]
+    score = SemanticScore(title=title, creators=creators, source=source)
 
     score_parts: dict[str, ET.Element] = {}
     part_list = child(root, "part-list")
@@ -783,80 +1169,128 @@ def convert(root: ET.Element, source: str = "") -> str:
     for part in (x for x in root if local(x.tag) == "part"):
         part_id = part.get("id", "?")
         score_part = score_parts.get(part_id)
-        part_line = f"@part {safe_id(part_id)}"
         part_name = text(score_part, "part-name") if score_part is not None else ""
-        if part_name:
-            part_line += " name=" + quote(part_name)
-        lines.append(part_line)
         instruments, instrument_aliases = instrument_catalog(score_part, part)
-        for definition in instruments:
-            instrument_line = f"@instrument {instrument_aliases[definition.xml_id]} id={quote(definition.xml_id)}"
-            if definition.name:
-                instrument_line += " name=" + quote(definition.name)
-            if definition.sound:
-                instrument_line += " sound=" + quote(definition.sound)
-            lines.append(instrument_line)
+        semantic_part = SemanticPart(
+            identifier=part_id,
+            name=part_name,
+            instruments=instruments,
+            instrument_aliases=instrument_aliases,
+        )
         divisions = 1
-        instrument_states: dict[str, str] = {}
-        multiple_instruments = len(instrument_aliases) > 1
+        note_index = 0
         navigation = NavigationState()
-        for measure in (x for x in part if local(x.tag) == "measure"):
+        for measure_index, measure in enumerate(
+            (x for x in part if local(x.tag) == "measure"), 1
+        ):
             number = measure.get("number", "?")
-            attrs: list[str] = []
-            annotations: list[tuple[Fraction, str]] = []
-            voices: dict[str, Voice] = defaultdict(Voice)
+            semantic_measure = SemanticMeasure(
+                number=number,
+                index=measure_index,
+                implicit=measure.get("implicit") == "yes",
+            )
+            last_onsets: dict[str, Fraction] = defaultdict(Fraction)
             cursor = Fraction(0)
             for item in measure:
                 kind = local(item.tag)
                 if kind == "attributes":
                     found, divisions = attribute_tokens(item, divisions)
-                    attrs.extend(found)
+                    semantic_measure.attributes.extend(found)
                 elif kind == "backup":
                     cursor -= Fraction(int(text(item, "duration", "0")), divisions)
                 elif kind == "forward":
                     cursor += Fraction(int(text(item, "duration", "0")), divisions)
                 elif kind == "direction":
                     offset = Fraction(int(text(item, "offset", "0") or 0), divisions)
-                    annotations.extend((cursor + offset, x) for x in direction_tokens(item, navigation))
+                    semantic_measure.directions.extend(
+                        (cursor + offset, value) for value in direction_tokens(item, navigation)
+                    )
                 elif kind == "barline":
                     repeat = child(item, "repeat")
                     if repeat is not None:
-                        attrs.append("repeat=" + repeat.get("direction", "?"))
+                        semantic_measure.attributes.append("repeat=" + repeat.get("direction", "?"))
                     ending = child(item, "ending")
                     if ending is not None:
-                        attrs.append("ending=" + ending.get("number", "?") + ":" + ending.get("type", "?"))
+                        semantic_measure.attributes.append(
+                            "ending=" + ending.get("number", "?") + ":" + ending.get("type", "?")
+                        )
                 elif kind == "note":
+                    note_index += 1
                     duration_raw = text(item, "duration", "0")
                     duration = Fraction(int(duration_raw or 0), divisions)
                     voice_id = text(item, "voice", "1")
                     staff = text(item, "staff", "1")
                     key = voice_id + (f"s{staff}" if staff != "1" else "")
                     is_chord = child(item, "chord") is not None
-                    start = voices[key].last_onset if is_chord else cursor
-                    token = pitch_token(item, instrument_aliases) + note_suffix(item)
-                    instrument_alias = ""
-                    if child(item, "pitch") is not None and instrument_aliases:
-                        reference = child(item, "instrument")
-                        xml_id = reference.get("id", "").strip() if reference is not None else ""
-                        if xml_id:
-                            instrument_alias = instrument_aliases.get(xml_id, "?")
-                        elif len(instrument_aliases) == 1:
-                            instrument_alias = next(iter(instrument_aliases.values()))
-                        else:
-                            instrument_alias = "?"
-                    voices[key].events.append(
-                        Event(start, duration, token, is_chord, instrument_alias, arpeggiation_markers(item))
+                    start = last_onsets[key] if is_chord else cursor
+                    event = semantic_note_event(
+                        item,
+                        part_id=part_id,
+                        measure_number=number,
+                        measure_index=measure_index,
+                        note_index=note_index,
+                        staff=staff,
+                        voice=voice_id,
+                        onset=start,
+                        duration=duration,
+                        chord=is_chord,
+                        instrument_aliases=instrument_aliases,
+                    )
+                    semantic_measure.events.append(event)
+                    semantic_measure.content_duration = max(
+                        semantic_measure.content_duration, event.onset + event.duration
                     )
                     if not is_chord:
-                        voices[key].last_onset = start
-                        if child(item, "grace") is None:
+                        last_onsets[key] = start
+                        if not event.grace:
                             cursor += duration
-            prefix = f"m{safe_id(number)}"
-            if attrs:
-                prefix += " " + " ".join(attrs)
+            semantic_part.measures.append(semantic_measure)
+        score.parts.append(semantic_part)
+    return score
+
+
+def render_cmusic(score: SemanticScore) -> str:
+    """Render an imported semantic score as deterministic concise-music-v1."""
+    header = ["@score", "format=concise-music-v1"]
+    if score.title:
+        header.append("title=" + quote(score.title))
+    if score.creators:
+        header.append("creator=" + quote("; ".join(score.creators)))
+    if score.source:
+        header.append("source=" + quote(score.source))
+    lines = [" ".join(header)]
+
+    for part in score.parts:
+        part_line = f"@part {safe_id(part.identifier)}"
+        if part.name:
+            part_line += " name=" + quote(part.name)
+        lines.append(part_line)
+        for definition in part.instruments:
+            instrument_line = (
+                f"@instrument {part.instrument_aliases[definition.xml_id]} "
+                f"id={quote(definition.xml_id)}"
+            )
+            if definition.name:
+                instrument_line += " name=" + quote(definition.name)
+            if definition.sound:
+                instrument_line += " sound=" + quote(definition.sound)
+            lines.append(instrument_line)
+
+        instrument_states: dict[str, str] = {}
+        multiple_instruments = len(part.instrument_aliases) > 1
+        for measure in part.measures:
+            voices: dict[str, Voice] = defaultdict(Voice)
+            for event in measure.events:
+                provenance = event.provenance
+                key = provenance.voice + (f"s{provenance.staff}" if provenance.staff != "1" else "")
+                voices[key].events.append(event)
+
+            prefix = f"m{safe_id(measure.number)}"
+            if measure.attributes:
+                prefix += " " + " ".join(measure.attributes)
             # Python's stable sort retains MusicXML order for semantic events
             # sharing an offset (for example pedal stop followed by start).
-            for at, value in sorted(annotations, key=lambda annotation: annotation[0]):
+            for at, value in sorted(measure.directions, key=lambda direction: direction[0]):
                 prefix += f" @{frac(at)}:{value}"
             if not voices:
                 lines.append(prefix + " |")
@@ -869,11 +1303,16 @@ def convert(root: ET.Element, source: str = "") -> str:
                 )
             else:
                 rendered = [
-                    f"v{safe_id(k)}: {render_voice(v, instrument_states, k, multiple_instruments)}"
-                    for k, v in sorted(voices.items())
+                    f"v{safe_id(key)}: "
+                    f"{render_voice(voice, instrument_states, key, multiple_instruments)}"
+                    for key, voice in sorted(voices.items())
                 ]
                 lines.append(prefix + " | " + " ; ".join(rendered))
     return "\n".join(lines) + "\n"
+
+
+def convert(root: ET.Element, source: str = "") -> str:
+    return render_cmusic(import_musicxml(root, source))
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -11,6 +11,8 @@ derived information and engraving-only metadata.
 - Keep the command-line converter usable with the Python standard library.
 - Treat the text format as a versioned public interface. Document syntax
   changes in `README.md` and cover them with focused tests.
+- Keep `concise_music_parser.py` compatible with every canonical token emitted
+  by the converter. Converter output must parse and render byte-for-byte.
 - Preserve authored musical information that cannot be reconstructed reliably
   from pitch, timing, and the other retained events.
 - Keep ties and slurs semantically distinct. Retain MusicXML numbers for
@@ -65,13 +67,46 @@ Keep these distinctions explicit during implementation and review:
 - written key signature (`key=N` fifths) versus inferred tonal center or mode;
   conventional MusicXML `<mode>` must not be serialized into the key token.
 
+## Architectural boundaries
+
+- MusicXML is the authoritative persisted source for score identity.
+- cmusic is a compact semantic view for LLM reasoning, not an authoritative
+  intermediate database for MusicXML-to-MIDI rendering.
+- Keep the cmusic parser typed, deterministic, and lossless for canonical
+  cmusic. Do not weaken it because authoritative rendering uses another path.
+- Grow the shared semantic score layer directly from MusicXML before cmusic
+  token rendering. `import_musicxml()` returns the ordered `SemanticScore`,
+  `SemanticPart`, `SemanticMeasure`, and `SemanticNoteEvent` tree consumed by
+  `render_cmusic()`. Do not regress to a pre-rendered all-in-one event token or
+  mistake this incremental model for a complete MusicXML object model.
+- Keep ties and slurs in typed `TieRelation` and `SlurRelation` event fields.
+  Rendering may normalize redundant playback ties, but the semantic import must
+  retain the distinction between `<tie>` and `<tied>`.
+- Keep articulation blocks in ordered typed `ArticulationGroup` values. Retain
+  authored textual values, discard layout attributes, and preserve group/source
+  order when rendering existing `art=` markers.
+- Keep fermatas in ordered typed `Fermata` values. Preserve authored shape,
+  discard placement and coordinates, and retain their marker position after
+  technical indications.
+- Represent grace identity and authored slash/steal/make-time behavior with
+  `GraceSemantics`; do not reintroduce a parallel grace boolean. Preserve the
+  existing marker position after time-modification semantics.
+- Model technical indications with the focused `Technical*` variants and
+  ordered `TechnicalGroup` values. Do not replace them with raw XML or a generic
+  attribute dictionary; exclude layout properties during import.
+- Performance plans may affect realization but must not invent, delete, or
+  mutate source-event identity. LLMs interpret performance; they do not
+  reconstruct notes already present in the score.
+- MIDI controller and keyswitch conventions belong to renderer profiles and
+  sample-library adapters, not to the score model or cmusic grammar.
+
 ## Verification
 
 Run before committing:
 
 ```console
 python -m unittest -v
-python -m py_compile concise_musicxml.py concise_musicxml_gui.py semantic_audit.py test_concise_musicxml.py
+python -m py_compile concise_musicxml.py concise_music_parser.py concise_musicxml_gui.py neutral_midi.py semantic_audit.py test_concise_musicxml.py test_concise_music_parser.py test_neutral_midi.py
 ```
 
 For MusicXML notation changes, include tests for multiple events on one note,
@@ -93,6 +128,16 @@ For available full scores, run:
 python concise_musicxml.py input.musicxml -o candidate.cmusic
 python semantic_audit.py input.musicxml candidate.cmusic
 ```
+
+The relation audit must continue checking both MusicXML → semantic model and
+semantic model → cmusic. Source-to-model checks use per-part note identity;
+model-to-output checks use the strongest location and relation identity that
+cmusic serializes. Do not replace these with aggregate-only counts.
+
+Neutral MIDI must consume `SemanticScore` directly through a distinct
+realization layer. Every semantic note/rest needs an explicit disposition and
+every performed note needs source provenance. Never use source-note count equal
+to MIDI-note count as a general invariant, and never parse cmusic in this path.
 
 Structural refactors require byte-for-byte comparison with output generated
 before the refactor. Record source/output byte sizes and compression ratio as
